@@ -10,19 +10,28 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// Filtros
+// Filtros - Sprint 5-6: Agregado filtro por proyecto
 $filtro_estado = isset($_GET['estado']) ? sanitize_text_field($_GET['estado']) : '';
 $filtro_usuario = isset($_GET['usuario']) ? absint($_GET['usuario']) : 0;
+$filtro_proyecto = isset($_GET['proyecto']) ? absint($_GET['proyecto']) : 0;
 
+// Obtener tareas con filtros aplicados
 $tareas = GA_Tareas::get_all(array(
     'estado' => $filtro_estado,
     'asignado_a' => $filtro_usuario,
+    'proyecto_id' => $filtro_proyecto,
 ));
 
+// Obtener datos para selectores
 $estados = GA_Tareas::get_estados();
 $prioridades = GA_Tareas::get_prioridades();
 $motivos_pausa = GA_Tareas::get_motivos_pausa();
 $usuarios = GA_Usuarios::get_for_dropdown();
+
+// Sprint 5-6: Datos para selector de proyecto
+$proyectos = GA_Proyectos::get_for_dropdown();
+$clientes = GA_Clientes::get_for_dropdown();
+$casos = GA_Casos::get_for_dropdown();
 
 // Vista: listado o edición
 $edit_id = isset($_GET['edit']) ? absint($_GET['edit']) : 0;
@@ -74,6 +83,53 @@ $subtareas_edit = $edit_id > 0 ? GA_Tareas::get_subtareas($edit_id) : array();
 
             <form id="ga-form-tarea">
                 <input type="hidden" name="id" id="tarea-id" value="<?php echo esc_attr($edit_id); ?>">
+
+                <!-- Sprint 5-6: Selector de Proyecto/Caso -->
+                <div class="ga-card" style="background: #f9f9f9; padding: 15px; margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 10px 0; color: var(--ga-primary);">
+                        <?php esc_html_e('Asignación a Proyecto (Opcional)', 'gestionadmin-wolk'); ?>
+                    </h4>
+                    <div class="ga-row">
+                        <!-- Selector de Proyecto -->
+                        <div class="ga-col ga-col-6">
+                            <div class="ga-form-group" style="margin-bottom: 0;">
+                                <label class="ga-form-label" for="tarea-proyecto">
+                                    <?php esc_html_e('Proyecto', 'gestionadmin-wolk'); ?>
+                                </label>
+                                <select id="tarea-proyecto" name="proyecto_id" class="ga-form-select">
+                                    <option value=""><?php esc_html_e('-- Sin proyecto --', 'gestionadmin-wolk'); ?></option>
+                                    <?php foreach ($proyectos as $proy) : ?>
+                                        <option value="<?php echo esc_attr($proy->id); ?>"
+                                            <?php selected($tarea_edit ? $tarea_edit->proyecto_id : '', $proy->id); ?>
+                                            data-caso="<?php echo esc_attr($proy->caso_id); ?>">
+                                            <?php echo esc_html($proy->codigo . ' - ' . $proy->nombre); ?>
+                                            <small>(<?php echo esc_html($proy->cliente_nombre); ?>)</small>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Info del caso (solo lectura) -->
+                        <div class="ga-col ga-col-6">
+                            <div class="ga-form-group" style="margin-bottom: 0;">
+                                <label class="ga-form-label"><?php esc_html_e('Caso Asociado', 'gestionadmin-wolk'); ?></label>
+                                <p id="tarea-caso-info" style="padding: 8px; background: #fff; border: 1px solid var(--ga-border); border-radius: 3px; margin: 0;">
+                                    <?php
+                                    if ($tarea_edit && $tarea_edit->caso_id) {
+                                        $caso_info = GA_Casos::get($tarea_edit->caso_id);
+                                        echo esc_html($caso_info ? $caso_info->numero . ' - ' . $caso_info->titulo : '-');
+                                    } else {
+                                        echo '<em>' . esc_html__('Selecciona un proyecto', 'gestionadmin-wolk') . '</em>';
+                                    }
+                                    ?>
+                                </p>
+                                <input type="hidden" id="tarea-caso" name="caso_id"
+                                       value="<?php echo $tarea_edit ? esc_attr($tarea_edit->caso_id) : ''; ?>">
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="ga-row">
                     <div class="ga-col ga-col-6">
@@ -234,13 +290,17 @@ $subtareas_edit = $edit_id > 0 ? GA_Tareas::get_subtareas($edit_id) : array();
     <?php else : ?>
         <!-- Listado de Tareas -->
         <div class="ga-card">
-            <!-- Filtros -->
+            <!-- Filtros - Sprint 5-6: Agregado filtro por proyecto -->
             <form method="get" style="margin-bottom: 20px;">
                 <input type="hidden" name="page" value="gestionadmin-tareas">
                 <div class="ga-row">
+                    <!-- Filtro por estado -->
                     <div class="ga-col ga-col-3">
+                        <label class="ga-form-label" style="font-size: 12px; margin-bottom: 3px;">
+                            <?php esc_html_e('Estado', 'gestionadmin-wolk'); ?>
+                        </label>
                         <select name="estado" class="ga-form-select">
-                            <option value=""><?php esc_html_e('-- Todos los estados --', 'gestionadmin-wolk'); ?></option>
+                            <option value=""><?php esc_html_e('Todos', 'gestionadmin-wolk'); ?></option>
                             <?php foreach ($estados as $key => $label) : ?>
                                 <option value="<?php echo esc_attr($key); ?>" <?php selected($filtro_estado, $key); ?>>
                                     <?php echo esc_html($label); ?>
@@ -248,9 +308,14 @@ $subtareas_edit = $edit_id > 0 ? GA_Tareas::get_subtareas($edit_id) : array();
                             <?php endforeach; ?>
                         </select>
                     </div>
+
+                    <!-- Filtro por usuario -->
                     <div class="ga-col ga-col-3">
+                        <label class="ga-form-label" style="font-size: 12px; margin-bottom: 3px;">
+                            <?php esc_html_e('Usuario', 'gestionadmin-wolk'); ?>
+                        </label>
                         <select name="usuario" class="ga-form-select">
-                            <option value=""><?php esc_html_e('-- Todos los usuarios --', 'gestionadmin-wolk'); ?></option>
+                            <option value=""><?php esc_html_e('Todos', 'gestionadmin-wolk'); ?></option>
                             <?php foreach ($usuarios as $u) : ?>
                                 <option value="<?php echo esc_attr($u->usuario_wp_id); ?>" <?php selected($filtro_usuario, $u->usuario_wp_id); ?>>
                                     <?php echo esc_html($u->nombre); ?>
@@ -258,8 +323,25 @@ $subtareas_edit = $edit_id > 0 ? GA_Tareas::get_subtareas($edit_id) : array();
                             <?php endforeach; ?>
                         </select>
                     </div>
+
+                    <!-- Sprint 5-6: Filtro por proyecto -->
                     <div class="ga-col ga-col-3">
-                        <button type="submit" class="ga-btn"><?php esc_html_e('Filtrar', 'gestionadmin-wolk'); ?></button>
+                        <label class="ga-form-label" style="font-size: 12px; margin-bottom: 3px;">
+                            <?php esc_html_e('Proyecto', 'gestionadmin-wolk'); ?>
+                        </label>
+                        <select name="proyecto" class="ga-form-select">
+                            <option value=""><?php esc_html_e('Todos', 'gestionadmin-wolk'); ?></option>
+                            <?php foreach ($proyectos as $proy) : ?>
+                                <option value="<?php echo esc_attr($proy->id); ?>" <?php selected($filtro_proyecto, $proy->id); ?>>
+                                    <?php echo esc_html($proy->codigo . ' - ' . $proy->nombre); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <!-- Botones -->
+                    <div class="ga-col ga-col-3" style="padding-top: 22px;">
+                        <button type="submit" class="ga-btn ga-btn-primary"><?php esc_html_e('Filtrar', 'gestionadmin-wolk'); ?></button>
                         <a href="<?php echo esc_url(admin_url('admin.php?page=gestionadmin-tareas')); ?>" class="ga-btn">
                             <?php esc_html_e('Limpiar', 'gestionadmin-wolk'); ?>
                         </a>
@@ -600,6 +682,37 @@ jQuery(document).ready(function($) {
     // =========================================================================
     // FORMULARIO TAREA
     // =========================================================================
+
+    // Sprint 5-6: Array de casos para buscar info cuando se selecciona proyecto
+    var casosData = <?php echo wp_json_encode(array_map(function($c) {
+        return array(
+            'id' => $c->id,
+            'numero' => $c->numero,
+            'titulo' => $c->titulo,
+        );
+    }, $casos)); ?>;
+
+    // Evento: cuando cambia el proyecto, actualizar el caso asociado
+    $('#tarea-proyecto').on('change', function() {
+        var $selected = $(this).find(':selected');
+        var casoId = $selected.data('caso') || '';
+
+        // Actualizar campo hidden de caso
+        $('#tarea-caso').val(casoId);
+
+        // Actualizar info visible del caso
+        if (casoId) {
+            var caso = casosData.find(function(c) { return c.id == casoId; });
+            if (caso) {
+                $('#tarea-caso-info').html('<strong>' + caso.numero + '</strong> - ' + caso.titulo);
+            } else {
+                $('#tarea-caso-info').html('-');
+            }
+        } else {
+            $('#tarea-caso-info').html('<em><?php echo esc_js(__('Selecciona un proyecto', 'gestionadmin-wolk')); ?></em>');
+        }
+    });
+
     var subtareaCount = <?php echo count($subtareas_edit); ?>;
 
     $('#ga-btn-add-subtarea').on('click', function() {
@@ -657,6 +770,8 @@ jQuery(document).ready(function($) {
             fecha_limite: $('#tarea-limite').val(),
             prioridad: $('#tarea-prioridad').val(),
             estado: $('#tarea-estado').val(),
+            proyecto_id: $('#tarea-proyecto').val(),  // Sprint 5-6
+            caso_id: $('#tarea-caso').val(),          // Sprint 5-6
             subtareas: subtareas
         }, function(response) {
             if (response.success) {

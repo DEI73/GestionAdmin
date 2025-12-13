@@ -35,7 +35,7 @@ class GA_Admin {
         add_action('admin_menu', array($this, 'add_admin_menus'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_assets'));
 
-        // AJAX handlers
+        // AJAX handlers - Sprint 1-2
         add_action('wp_ajax_ga_save_departamento', array($this, 'ajax_save_departamento'));
         add_action('wp_ajax_ga_delete_departamento', array($this, 'ajax_delete_departamento'));
         add_action('wp_ajax_ga_save_puesto', array($this, 'ajax_save_puesto'));
@@ -44,6 +44,8 @@ class GA_Admin {
         add_action('wp_ajax_ga_delete_escala', array($this, 'ajax_delete_escala'));
         add_action('wp_ajax_ga_save_usuario', array($this, 'ajax_save_usuario'));
         add_action('wp_ajax_ga_save_pais', array($this, 'ajax_save_pais'));
+
+        // AJAX handlers - Sprint 3-4 (Tareas y Timer)
         add_action('wp_ajax_ga_save_tarea', array($this, 'ajax_save_tarea'));
         add_action('wp_ajax_ga_delete_tarea', array($this, 'ajax_delete_tarea'));
         add_action('wp_ajax_ga_timer_start', array($this, 'ajax_timer_start'));
@@ -51,17 +53,38 @@ class GA_Admin {
         add_action('wp_ajax_ga_timer_resume', array($this, 'ajax_timer_resume'));
         add_action('wp_ajax_ga_timer_stop', array($this, 'ajax_timer_stop'));
         add_action('wp_ajax_ga_get_timer_status', array($this, 'ajax_get_timer_status'));
+
+        // AJAX handlers - Sprint 5-6 (Clientes, Casos, Proyectos)
+        add_action('wp_ajax_ga_save_cliente', array($this, 'ajax_save_cliente'));
+        add_action('wp_ajax_ga_delete_cliente', array($this, 'ajax_delete_cliente'));
+        add_action('wp_ajax_ga_save_caso', array($this, 'ajax_save_caso'));
+        add_action('wp_ajax_ga_delete_caso', array($this, 'ajax_delete_caso'));
+        add_action('wp_ajax_ga_get_casos_by_cliente', array($this, 'ajax_get_casos_by_cliente'));
+        add_action('wp_ajax_ga_save_proyecto', array($this, 'ajax_save_proyecto'));
+        add_action('wp_ajax_ga_delete_proyecto', array($this, 'ajax_delete_proyecto'));
+        add_action('wp_ajax_ga_get_proyectos_by_caso', array($this, 'ajax_get_proyectos_by_caso'));
     }
 
     /**
      * Cargar módulos
+     *
+     * Carga todos los módulos necesarios para el funcionamiento del admin.
+     * Organizados por sprint de desarrollo.
      */
     private function load_modules() {
+        // Sprint 1-2: Fundamentos
         require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-departamentos.php';
         require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-puestos.php';
         require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-usuarios.php';
         require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-paises.php';
+
+        // Sprint 3-4: Core Operativo
         require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-tareas.php';
+
+        // Sprint 5-6: Clientes y Proyectos
+        require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-clientes.php';
+        require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-casos.php';
+        require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-proyectos.php';
     }
 
     /**
@@ -137,6 +160,46 @@ class GA_Admin {
             'manage_options',
             'gestionadmin-tareas',
             array($this, 'render_tareas')
+        );
+
+        // Separador visual (Sprint 5-6)
+        add_submenu_page(
+            'gestionadmin',
+            '',
+            '── ' . __('Clientes', 'gestionadmin-wolk') . ' ──',
+            'manage_options',
+            '#ga-separator-clientes',
+            '__return_false'
+        );
+
+        // Clientes
+        add_submenu_page(
+            'gestionadmin',
+            __('Clientes', 'gestionadmin-wolk'),
+            __('Clientes', 'gestionadmin-wolk'),
+            'manage_options',
+            'gestionadmin-clientes',
+            array($this, 'render_clientes')
+        );
+
+        // Casos
+        add_submenu_page(
+            'gestionadmin',
+            __('Casos', 'gestionadmin-wolk'),
+            __('Casos', 'gestionadmin-wolk'),
+            'manage_options',
+            'gestionadmin-casos',
+            array($this, 'render_casos')
+        );
+
+        // Proyectos
+        add_submenu_page(
+            'gestionadmin',
+            __('Proyectos', 'gestionadmin-wolk'),
+            __('Proyectos', 'gestionadmin-wolk'),
+            'manage_options',
+            'gestionadmin-proyectos',
+            array($this, 'render_proyectos')
         );
     }
 
@@ -234,6 +297,45 @@ class GA_Admin {
             wp_die(esc_html__('No tienes permisos para acceder a esta página.', 'gestionadmin-wolk'));
         }
         include GA_PLUGIN_DIR . 'admin/views/tareas.php';
+    }
+
+    /**
+     * Renderizar Clientes
+     *
+     * Página de gestión de clientes con CRUD completo.
+     * Soporta personas naturales y empresas.
+     */
+    public function render_clientes() {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('No tienes permisos para acceder a esta página.', 'gestionadmin-wolk'));
+        }
+        include GA_PLUGIN_DIR . 'admin/views/clientes.php';
+    }
+
+    /**
+     * Renderizar Casos
+     *
+     * Página de gestión de casos/expedientes.
+     * Los casos agrupan proyectos de un cliente.
+     */
+    public function render_casos() {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('No tienes permisos para acceder a esta página.', 'gestionadmin-wolk'));
+        }
+        include GA_PLUGIN_DIR . 'admin/views/casos.php';
+    }
+
+    /**
+     * Renderizar Proyectos
+     *
+     * Página de gestión de proyectos.
+     * Los proyectos pertenecen a un caso específico.
+     */
+    public function render_proyectos() {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('No tienes permisos para acceder a esta página.', 'gestionadmin-wolk'));
+        }
+        include GA_PLUGIN_DIR . 'admin/views/proyectos.php';
     }
 
     // =========================================================================
@@ -469,6 +571,9 @@ class GA_Admin {
             'fecha_limite' => sanitize_text_field($_POST['fecha_limite']),
             'prioridad' => sanitize_text_field($_POST['prioridad']),
             'estado' => sanitize_text_field($_POST['estado']),
+            // Sprint 5-6: Campos de proyecto y caso
+            'proyecto_id' => !empty($_POST['proyecto_id']) ? absint($_POST['proyecto_id']) : null,
+            'caso_id' => !empty($_POST['caso_id']) ? absint($_POST['caso_id']) : null,
         );
 
         // Procesar subtareas
@@ -590,5 +695,265 @@ class GA_Admin {
         $result = GA_Tareas::get_active_timer($usuario_id);
 
         wp_send_json_success($result);
+    }
+
+    // =========================================================================
+    // AJAX HANDLERS - CLIENTES (Sprint 5-6)
+    // =========================================================================
+
+    /**
+     * AJAX: Guardar cliente
+     *
+     * Crea o actualiza un cliente con todos sus datos fiscales.
+     */
+    public function ajax_save_cliente() {
+        check_ajax_referer('ga_admin_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Sin permisos', 'gestionadmin-wolk')));
+        }
+
+        // Obtener ID (0 para nuevo cliente)
+        $id = isset($_POST['id']) ? absint($_POST['id']) : 0;
+
+        // Sanitizar todos los campos del formulario
+        $data = array(
+            'codigo'              => sanitize_text_field($_POST['codigo'] ?? ''),
+            'tipo'                => sanitize_text_field($_POST['tipo'] ?? 'EMPRESA'),
+            'nombre_comercial'    => sanitize_text_field($_POST['nombre_comercial']),
+            'razon_social'        => sanitize_text_field($_POST['razon_social'] ?? ''),
+            'documento_tipo'      => sanitize_text_field($_POST['documento_tipo'] ?? ''),
+            'documento_numero'    => sanitize_text_field($_POST['documento_numero'] ?? ''),
+            'email'               => sanitize_email($_POST['email'] ?? ''),
+            'telefono'            => sanitize_text_field($_POST['telefono'] ?? ''),
+            'pais'                => sanitize_text_field($_POST['pais'] ?? ''),
+            'ciudad'              => sanitize_text_field($_POST['ciudad'] ?? ''),
+            'direccion'           => sanitize_textarea_field($_POST['direccion'] ?? ''),
+            'regimen_fiscal'      => sanitize_text_field($_POST['regimen_fiscal'] ?? ''),
+            'retencion_default'   => floatval($_POST['retencion_default'] ?? 0),
+            'contacto_nombre'     => sanitize_text_field($_POST['contacto_nombre'] ?? ''),
+            'contacto_cargo'      => sanitize_text_field($_POST['contacto_cargo'] ?? ''),
+            'contacto_email'      => sanitize_email($_POST['contacto_email'] ?? ''),
+            'contacto_telefono'   => sanitize_text_field($_POST['contacto_telefono'] ?? ''),
+            'metodo_pago_preferido' => sanitize_text_field($_POST['metodo_pago_preferido'] ?? 'TRANSFERENCIA'),
+            'notas'               => sanitize_textarea_field($_POST['notas'] ?? ''),
+            'activo'              => absint($_POST['activo'] ?? 1),
+        );
+
+        // Guardar cliente
+        $result = GA_Clientes::save($id, $data);
+
+        if (is_wp_error($result)) {
+            wp_send_json_error(array('message' => $result->get_error_message()));
+        }
+
+        wp_send_json_success(array(
+            'message' => __('Cliente guardado correctamente', 'gestionadmin-wolk'),
+            'id' => $result
+        ));
+    }
+
+    /**
+     * AJAX: Eliminar cliente (soft delete)
+     */
+    public function ajax_delete_cliente() {
+        check_ajax_referer('ga_admin_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Sin permisos', 'gestionadmin-wolk')));
+        }
+
+        $id = absint($_POST['id']);
+
+        // Verificar que no tenga casos activos
+        $casos_count = GA_Clientes::count_casos($id);
+        if ($casos_count > 0) {
+            wp_send_json_error(array(
+                'message' => sprintf(
+                    __('No se puede eliminar: el cliente tiene %d caso(s) activo(s)', 'gestionadmin-wolk'),
+                    $casos_count
+                )
+            ));
+        }
+
+        $result = GA_Clientes::delete($id);
+
+        if (!$result) {
+            wp_send_json_error(array('message' => __('Error al eliminar cliente', 'gestionadmin-wolk')));
+        }
+
+        wp_send_json_success(array('message' => __('Cliente eliminado', 'gestionadmin-wolk')));
+    }
+
+    // =========================================================================
+    // AJAX HANDLERS - CASOS (Sprint 5-6)
+    // =========================================================================
+
+    /**
+     * AJAX: Guardar caso
+     *
+     * Crea o actualiza un caso/expediente de cliente.
+     */
+    public function ajax_save_caso() {
+        check_ajax_referer('ga_admin_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Sin permisos', 'gestionadmin-wolk')));
+        }
+
+        $id = isset($_POST['id']) ? absint($_POST['id']) : 0;
+
+        $data = array(
+            'cliente_id'           => absint($_POST['cliente_id']),
+            'titulo'               => sanitize_text_field($_POST['titulo']),
+            'descripcion'          => sanitize_textarea_field($_POST['descripcion'] ?? ''),
+            'tipo'                 => sanitize_text_field($_POST['tipo'] ?? 'PROYECTO'),
+            'estado'               => sanitize_text_field($_POST['estado'] ?? 'ABIERTO'),
+            'prioridad'            => sanitize_text_field($_POST['prioridad'] ?? 'MEDIA'),
+            'fecha_apertura'       => sanitize_text_field($_POST['fecha_apertura'] ?? ''),
+            'fecha_cierre_estimada' => sanitize_text_field($_POST['fecha_cierre_estimada'] ?? '') ?: null,
+            'responsable_id'       => absint($_POST['responsable_id'] ?? 0) ?: null,
+            'presupuesto_horas'    => absint($_POST['presupuesto_horas'] ?? 0) ?: null,
+            'presupuesto_dinero'   => floatval($_POST['presupuesto_dinero'] ?? 0) ?: null,
+            'notas'                => sanitize_textarea_field($_POST['notas'] ?? ''),
+        );
+
+        $result = GA_Casos::save($id, $data);
+
+        if (is_wp_error($result)) {
+            wp_send_json_error(array('message' => $result->get_error_message()));
+        }
+
+        wp_send_json_success(array(
+            'message' => __('Caso guardado correctamente', 'gestionadmin-wolk'),
+            'id' => $result
+        ));
+    }
+
+    /**
+     * AJAX: Eliminar caso (cambiar estado a cancelado)
+     */
+    public function ajax_delete_caso() {
+        check_ajax_referer('ga_admin_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Sin permisos', 'gestionadmin-wolk')));
+        }
+
+        $id = absint($_POST['id']);
+
+        // Verificar que no tenga proyectos activos
+        $proyectos_count = GA_Casos::count_proyectos($id);
+        if ($proyectos_count > 0) {
+            wp_send_json_error(array(
+                'message' => sprintf(
+                    __('No se puede cancelar: el caso tiene %d proyecto(s)', 'gestionadmin-wolk'),
+                    $proyectos_count
+                )
+            ));
+        }
+
+        $result = GA_Casos::change_estado($id, 'CANCELADO');
+
+        if (!$result) {
+            wp_send_json_error(array('message' => __('Error al cancelar caso', 'gestionadmin-wolk')));
+        }
+
+        wp_send_json_success(array('message' => __('Caso cancelado', 'gestionadmin-wolk')));
+    }
+
+    /**
+     * AJAX: Obtener casos por cliente
+     *
+     * Retorna lista de casos para dropdown dinámico.
+     */
+    public function ajax_get_casos_by_cliente() {
+        check_ajax_referer('ga_admin_nonce', 'nonce');
+
+        $cliente_id = absint($_GET['cliente_id'] ?? 0);
+        $casos = GA_Casos::get_for_dropdown($cliente_id);
+
+        wp_send_json_success($casos);
+    }
+
+    // =========================================================================
+    // AJAX HANDLERS - PROYECTOS (Sprint 5-6)
+    // =========================================================================
+
+    /**
+     * AJAX: Guardar proyecto
+     *
+     * Crea o actualiza un proyecto dentro de un caso.
+     */
+    public function ajax_save_proyecto() {
+        check_ajax_referer('ga_admin_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Sin permisos', 'gestionadmin-wolk')));
+        }
+
+        $id = isset($_POST['id']) ? absint($_POST['id']) : 0;
+
+        $data = array(
+            'caso_id'              => absint($_POST['caso_id']),
+            'codigo'               => sanitize_text_field($_POST['codigo'] ?? ''),
+            'nombre'               => sanitize_text_field($_POST['nombre']),
+            'descripcion'          => sanitize_textarea_field($_POST['descripcion'] ?? ''),
+            'fecha_inicio'         => sanitize_text_field($_POST['fecha_inicio'] ?? '') ?: null,
+            'fecha_fin_estimada'   => sanitize_text_field($_POST['fecha_fin_estimada'] ?? '') ?: null,
+            'estado'               => sanitize_text_field($_POST['estado'] ?? 'PLANIFICACION'),
+            'responsable_id'       => absint($_POST['responsable_id'] ?? 0) ?: null,
+            'presupuesto_horas'    => absint($_POST['presupuesto_horas'] ?? 0) ?: null,
+            'presupuesto_dinero'   => floatval($_POST['presupuesto_dinero'] ?? 0) ?: null,
+            'mostrar_ranking'      => absint($_POST['mostrar_ranking'] ?? 0),
+            'mostrar_tareas_equipo' => absint($_POST['mostrar_tareas_equipo'] ?? 1),
+            'mostrar_horas_equipo' => absint($_POST['mostrar_horas_equipo'] ?? 0),
+            'notas'                => sanitize_textarea_field($_POST['notas'] ?? ''),
+        );
+
+        $result = GA_Proyectos::save($id, $data);
+
+        if (is_wp_error($result)) {
+            wp_send_json_error(array('message' => $result->get_error_message()));
+        }
+
+        wp_send_json_success(array(
+            'message' => __('Proyecto guardado correctamente', 'gestionadmin-wolk'),
+            'id' => $result
+        ));
+    }
+
+    /**
+     * AJAX: Eliminar proyecto (cambiar estado a cancelado)
+     */
+    public function ajax_delete_proyecto() {
+        check_ajax_referer('ga_admin_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Sin permisos', 'gestionadmin-wolk')));
+        }
+
+        $id = absint($_POST['id']);
+        $result = GA_Proyectos::change_estado($id, 'CANCELADO');
+
+        if (!$result) {
+            wp_send_json_error(array('message' => __('Error al cancelar proyecto', 'gestionadmin-wolk')));
+        }
+
+        wp_send_json_success(array('message' => __('Proyecto cancelado', 'gestionadmin-wolk')));
+    }
+
+    /**
+     * AJAX: Obtener proyectos por caso
+     *
+     * Retorna lista de proyectos para dropdown dinámico.
+     */
+    public function ajax_get_proyectos_by_caso() {
+        check_ajax_referer('ga_admin_nonce', 'nonce');
+
+        $caso_id = absint($_GET['caso_id'] ?? 0);
+        $proyectos = GA_Proyectos::get_for_dropdown($caso_id);
+
+        wp_send_json_success($proyectos);
     }
 }

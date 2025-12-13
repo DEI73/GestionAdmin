@@ -156,16 +156,20 @@ class GA_Usuarios {
     }
 
     /**
-     * Obtener métodos de pago
+     * Obtener métodos de pago disponibles
+     * CORRECCIÓN 2: Stripe agregado como método de pago
+     *
+     * @return array Lista de métodos de pago con clave => nombre legible
      */
     public static function get_metodos_pago() {
         return array(
-            'BINANCE' => 'Binance',
-            'WISE' => 'Wise',
-            'PAYPAL' => 'PayPal',
-            'PAYONEER' => 'Payoneer',
+            'BINANCE'       => 'Binance',
+            'WISE'          => 'Wise',
+            'PAYPAL'        => 'PayPal',
+            'PAYONEER'      => 'Payoneer',
+            'STRIPE'        => 'Stripe', // CORRECCIÓN 2: Nuevo método de pago
             'TRANSFERENCIA' => __('Transferencia Bancaria', 'gestionadmin-wolk'),
-            'EFECTIVO' => __('Efectivo', 'gestionadmin-wolk'),
+            'EFECTIVO'      => __('Efectivo', 'gestionadmin-wolk'),
         );
     }
 }

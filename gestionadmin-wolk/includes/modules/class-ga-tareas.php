@@ -14,6 +14,8 @@ class GA_Tareas {
 
     /**
      * Obtener todas las tareas con filtros
+     *
+     * Sprint 5-6: Agregado filtro por proyecto_id
      */
     public static function get_all($args = array()) {
         global $wpdb;
@@ -24,6 +26,8 @@ class GA_Tareas {
             'estado' => '',
             'asignado_a' => 0,
             'prioridad' => '',
+            'proyecto_id' => 0, // Sprint 5-6: Filtro por proyecto
+            'caso_id' => 0,     // Sprint 5-6: Filtro por caso
             'limit' => 50,
             'offset' => 0,
         );
@@ -38,16 +42,29 @@ class GA_Tareas {
                 LEFT JOIN {$wpdb->users} u_sup ON t.supervisor_id = u_sup.ID
                 WHERE 1=1";
 
+        // Filtro por estado
         if (!empty($args['estado'])) {
             $sql .= $wpdb->prepare(" AND t.estado = %s", $args['estado']);
         }
 
+        // Filtro por usuario asignado
         if ($args['asignado_a'] > 0) {
             $sql .= $wpdb->prepare(" AND t.asignado_a = %d", $args['asignado_a']);
         }
 
+        // Filtro por prioridad
         if (!empty($args['prioridad'])) {
             $sql .= $wpdb->prepare(" AND t.prioridad = %s", $args['prioridad']);
+        }
+
+        // Sprint 5-6: Filtro por proyecto
+        if ($args['proyecto_id'] > 0) {
+            $sql .= $wpdb->prepare(" AND t.proyecto_id = %d", $args['proyecto_id']);
+        }
+
+        // Sprint 5-6: Filtro por caso
+        if ($args['caso_id'] > 0) {
+            $sql .= $wpdb->prepare(" AND t.caso_id = %d", $args['caso_id']);
         }
 
         $sql .= " ORDER BY

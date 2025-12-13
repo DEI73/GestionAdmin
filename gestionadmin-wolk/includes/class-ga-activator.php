@@ -50,12 +50,17 @@ class GA_Activator {
         self::create_registro_horas_table($wpdb, $charset_collate);
         self::create_pausas_timer_table($wpdb, $charset_collate);
 
+        // Crear tablas Sprint 5-6: Clientes y Proyectos
+        self::create_clientes_table($wpdb, $charset_collate);
+        self::create_casos_table($wpdb, $charset_collate);
+        self::create_proyectos_table($wpdb, $charset_collate);
+
         // Insertar datos iniciales
         self::insert_initial_data($wpdb);
 
         // Guardar versión del plugin
         add_option('ga_version', GA_VERSION);
-        update_option('ga_db_version', '1.1.0');
+        update_option('ga_db_version', '1.2.0'); // Sprint 5-6: Clientes y Proyectos
 
         // Crear roles personalizados
         self::create_custom_roles();
@@ -158,10 +163,11 @@ class GA_Activator {
             nivel_jerarquico INT DEFAULT 4,
             es_jefe_de_jefes TINYINT(1) DEFAULT 0,
             puede_ver_departamentos JSON,
-            metodo_pago_preferido ENUM('BINANCE', 'WISE', 'PAYPAL', 'PAYONEER', 'TRANSFERENCIA', 'EFECTIVO') DEFAULT 'TRANSFERENCIA',
+            metodo_pago_preferido ENUM('BINANCE', 'WISE', 'PAYPAL', 'PAYONEER', 'STRIPE', 'TRANSFERENCIA', 'EFECTIVO') DEFAULT 'TRANSFERENCIA',
             datos_pago_binance JSON,
             datos_pago_wise JSON,
             datos_pago_paypal JSON,
+            datos_pago_stripe JSON COMMENT 'CORRECCIÓN 2: Stripe agregado como método de pago',
             datos_pago_banco JSON,
             pais_residencia VARCHAR(2),
             identificacion_fiscal VARCHAR(50),
@@ -284,6 +290,20 @@ class GA_Activator {
                     'formato_factura' => 'FAC-MX-{YYYY}-{NNNN}',
                     'requiere_electronica' => 1,
                     'proveedor_electronica' => 'SAT',
+                    'activo' => 1
+                ),
+                // Costa Rica - CORRECCIÓN 1: País agregado con facturación electrónica
+                array(
+                    'codigo_iso' => 'CR',
+                    'nombre' => 'Costa Rica',
+                    'moneda_codigo' => 'CRC',
+                    'moneda_simbolo' => '₡',
+                    'impuesto_nombre' => 'IVA',
+                    'impuesto_porcentaje' => 13.00,
+                    'retencion_default' => 0.00,
+                    'formato_factura' => 'FE-CR-{YYYY}-{NNNN}',
+                    'requiere_electronica' => 1,
+                    'proveedor_electronica' => 'Ministerio de Hacienda Costa Rica',
                     'activo' => 1
                 )
             );
@@ -551,6 +571,148 @@ class GA_Activator {
             nota VARCHAR(200),
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_registro (registro_hora_id)
+        ) {$charset_collate};";
+
+        dbDelta($sql);
+    }
+
+    // =========================================================================
+    // TABLAS SPRINT 5-6: CLIENTES Y PROYECTOS
+    // =========================================================================
+
+    /**
+     * Crear tabla wp_ga_clientes
+     *
+     * Almacena la información de clientes de la empresa.
+     * Los clientes pueden tener usuario WP asociado para acceder al portal.
+     * Soporta personas naturales y empresas con datos fiscales.
+     *
+     * @param object $wpdb Instancia global de WordPress Database
+     * @param string $charset_collate Charset y collation de la BD
+     */
+    private static function create_clientes_table($wpdb, $charset_collate) {
+        $table_name = $wpdb->prefix . 'ga_clientes';
+
+        $sql = "CREATE TABLE {$table_name} (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            usuario_wp_id BIGINT UNSIGNED UNIQUE COMMENT 'FK wp_users - Para login portal cliente',
+            codigo VARCHAR(20) NOT NULL UNIQUE COMMENT 'Formato: CLI-001',
+            tipo ENUM('PERSONA_NATURAL', 'EMPRESA') DEFAULT 'EMPRESA',
+            nombre_comercial VARCHAR(200) NOT NULL COMMENT 'Nombre comercial o nombre completo',
+            razon_social VARCHAR(200) COMMENT 'Razón social legal (si es empresa)',
+            documento_tipo VARCHAR(20) COMMENT 'Tipo: NIT, CC, RFC, EIN, etc.',
+            documento_numero VARCHAR(50) COMMENT 'Número de identificación fiscal',
+            email VARCHAR(200) COMMENT 'Email principal de facturación',
+            telefono VARCHAR(50) COMMENT 'Teléfono principal',
+            pais VARCHAR(2) COMMENT 'Código ISO del país',
+            ciudad VARCHAR(100),
+            direccion TEXT COMMENT 'Dirección fiscal completa',
+            regimen_fiscal VARCHAR(50) COMMENT 'Régimen tributario aplicable',
+            retencion_default DECIMAL(5,2) DEFAULT 0 COMMENT 'Porcentaje de retención por defecto',
+            contacto_nombre VARCHAR(200) COMMENT 'Nombre del contacto principal',
+            contacto_cargo VARCHAR(100) COMMENT 'Cargo del contacto',
+            contacto_email VARCHAR(200) COMMENT 'Email del contacto',
+            contacto_telefono VARCHAR(50) COMMENT 'Teléfono del contacto',
+            stripe_customer_id VARCHAR(50) COMMENT 'ID de cliente en Stripe',
+            paypal_email VARCHAR(200) COMMENT 'Email de PayPal del cliente',
+            metodo_pago_preferido ENUM('TRANSFERENCIA', 'STRIPE', 'PAYPAL', 'EFECTIVO') DEFAULT 'TRANSFERENCIA',
+            notas TEXT COMMENT 'Notas internas sobre el cliente',
+            activo TINYINT(1) DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_codigo (codigo),
+            INDEX idx_pais (pais),
+            INDEX idx_activo (activo),
+            INDEX idx_tipo (tipo)
+        ) {$charset_collate};";
+
+        dbDelta($sql);
+    }
+
+    /**
+     * Crear tabla wp_ga_casos
+     *
+     * Representa expedientes o casos de clientes.
+     * Un caso agrupa proyectos relacionados para un mismo cliente.
+     * Numeración automática: CASO-[CODIGO_CLIENTE]-[AÑO]-[CONSECUTIVO]
+     *
+     * @param object $wpdb Instancia global de WordPress Database
+     * @param string $charset_collate Charset y collation de la BD
+     */
+    private static function create_casos_table($wpdb, $charset_collate) {
+        $table_name = $wpdb->prefix . 'ga_casos';
+
+        $sql = "CREATE TABLE {$table_name} (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            numero VARCHAR(30) NOT NULL UNIQUE COMMENT 'Formato: CASO-CLI001-2024-0001',
+            cliente_id INT NOT NULL COMMENT 'FK a wp_ga_clientes',
+            titulo VARCHAR(200) NOT NULL COMMENT 'Título descriptivo del caso',
+            descripcion TEXT COMMENT 'Descripción detallada del caso',
+            tipo ENUM('PROYECTO', 'LEGAL', 'SOPORTE', 'CONSULTORIA', 'OTRO') DEFAULT 'PROYECTO',
+            estado ENUM('ABIERTO', 'EN_PROGRESO', 'EN_ESPERA', 'CERRADO', 'CANCELADO') DEFAULT 'ABIERTO',
+            prioridad ENUM('BAJA', 'MEDIA', 'ALTA', 'URGENTE') DEFAULT 'MEDIA',
+            fecha_apertura DATE NOT NULL COMMENT 'Fecha de apertura del caso',
+            fecha_cierre_estimada DATE COMMENT 'Fecha estimada de cierre',
+            fecha_cierre_real DATETIME COMMENT 'Fecha real de cierre',
+            responsable_id BIGINT UNSIGNED COMMENT 'Usuario WP responsable del caso',
+            presupuesto_horas INT COMMENT 'Horas presupuestadas para el caso',
+            presupuesto_dinero DECIMAL(12,2) COMMENT 'Monto presupuestado en USD',
+            notas TEXT COMMENT 'Notas internas del caso',
+            created_by BIGINT UNSIGNED COMMENT 'Usuario que creó el caso',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_numero (numero),
+            INDEX idx_cliente (cliente_id),
+            INDEX idx_estado (estado),
+            INDEX idx_prioridad (prioridad),
+            INDEX idx_responsable (responsable_id),
+            INDEX idx_fecha_apertura (fecha_apertura)
+        ) {$charset_collate};";
+
+        dbDelta($sql);
+    }
+
+    /**
+     * Crear tabla wp_ga_proyectos
+     *
+     * Proyectos específicos dentro de un caso.
+     * Cada proyecto tiene su propio presupuesto y cronograma.
+     * Las tareas se asignan a proyectos para tracking.
+     *
+     * @param object $wpdb Instancia global de WordPress Database
+     * @param string $charset_collate Charset y collation de la BD
+     */
+    private static function create_proyectos_table($wpdb, $charset_collate) {
+        $table_name = $wpdb->prefix . 'ga_proyectos';
+
+        $sql = "CREATE TABLE {$table_name} (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            caso_id INT NOT NULL COMMENT 'FK a wp_ga_casos',
+            codigo VARCHAR(20) NOT NULL UNIQUE COMMENT 'Formato: PRY-001',
+            nombre VARCHAR(200) NOT NULL COMMENT 'Nombre del proyecto',
+            descripcion TEXT COMMENT 'Descripción detallada del proyecto',
+            fecha_inicio DATE COMMENT 'Fecha de inicio planificada',
+            fecha_fin_estimada DATE COMMENT 'Fecha de fin estimada',
+            fecha_fin_real DATE COMMENT 'Fecha de fin real',
+            estado ENUM('PLANIFICACION', 'EN_PROGRESO', 'PAUSADO', 'COMPLETADO', 'CANCELADO') DEFAULT 'PLANIFICACION',
+            responsable_id BIGINT UNSIGNED COMMENT 'Usuario WP responsable del proyecto',
+            presupuesto_horas INT COMMENT 'Horas presupuestadas',
+            presupuesto_dinero DECIMAL(12,2) COMMENT 'Monto presupuestado en USD',
+            horas_consumidas DECIMAL(10,2) DEFAULT 0 COMMENT 'Horas reales consumidas (calculado)',
+            porcentaje_avance INT DEFAULT 0 COMMENT 'Porcentaje de avance 0-100',
+            timedoctor_project_id VARCHAR(50) COMMENT 'ID de proyecto en TimeDoctor',
+            mostrar_ranking TINYINT(1) DEFAULT 0 COMMENT 'Mostrar ranking en portal cliente',
+            mostrar_tareas_equipo TINYINT(1) DEFAULT 1 COMMENT 'Mostrar tareas del equipo',
+            mostrar_horas_equipo TINYINT(1) DEFAULT 0 COMMENT 'Mostrar horas del equipo',
+            notas TEXT COMMENT 'Notas internas del proyecto',
+            created_by BIGINT UNSIGNED COMMENT 'Usuario que creó el proyecto',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_codigo (codigo),
+            INDEX idx_caso (caso_id),
+            INDEX idx_estado (estado),
+            INDEX idx_responsable (responsable_id),
+            INDEX idx_fecha_inicio (fecha_inicio)
         ) {$charset_collate};";
 
         dbDelta($sql);
