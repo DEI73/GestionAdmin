@@ -1,0 +1,78 @@
+/**
+ * Estilos del área pública (Portal de clientes)
+ * GestionAdmin by Wolk
+ * @since 1.0.0
+ */
+
+/* Variables CSS */
+:root {
+    --ga-primary: #2271b1;
+    --ga-primary-dark: #135e96;
+    --ga-text: #333;
+    --ga-border: #ddd;
+    --ga-bg-light: #f9f9f9;
+}
+
+/* Contenedor del portal */
+.ga-portal {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Tarjetas públicas */
+.ga-public-card {
+    background: #fff;
+    border: 1px solid var(--ga-border);
+    border-radius: 8px;
+    padding: 30px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,.1);
+}
+
+/* Botones públicos */
+.ga-public-btn {
+    display: inline-block;
+    padding: 12px 24px;
+    background: var(--ga-primary);
+    color: #fff;
+    text-decoration: none;
+    border-radius: 4px;
+    font-weight: 600;
+    transition: background 0.3s;
+}
+
+.ga-public-btn:hover {
+    background: var(--ga-primary-dark);
+    color: #fff;
+}
+
+/* Tablas públicas */
+.ga-public-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+}
+
+.ga-public-table th,
+.ga-public-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--ga-border);
+}
+
+.ga-public-table th {
+    background: var(--ga-bg-light);
+    font-weight: 600;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .ga-portal {
+        padding: 10px;
+    }
+
+    .ga-public-card {
+        padding: 20px;
+    }
+}

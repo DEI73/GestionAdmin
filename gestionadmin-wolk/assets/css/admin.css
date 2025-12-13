@@ -1,0 +1,222 @@
+/**
+ * Estilos del área de administración
+ * GestionAdmin by Wolk
+ * @since 1.0.0
+ */
+
+/* Variables CSS */
+:root {
+    --ga-primary: #2271b1;
+    --ga-primary-dark: #135e96;
+    --ga-success: #00a32a;
+    --ga-warning: #dba617;
+    --ga-danger: #d63638;
+    --ga-border: #c3c4c7;
+    --ga-bg-light: #f6f7f7;
+}
+
+/* Contenedor principal */
+.wrap.ga-admin {
+    margin: 20px 20px 0 0;
+}
+
+.ga-admin h1 {
+    margin-bottom: 20px;
+}
+
+/* Tarjetas */
+.ga-card {
+    background: #fff;
+    border: 1px solid var(--ga-border);
+    border-radius: 4px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+}
+
+.ga-card-header {
+    border-bottom: 1px solid var(--ga-border);
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+}
+
+.ga-card-header h2 {
+    margin: 0;
+    font-size: 18px;
+}
+
+/* Botones */
+.ga-btn {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 3px;
+    text-decoration: none;
+    cursor: pointer;
+    border: none;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.ga-btn-primary {
+    background: var(--ga-primary);
+    color: #fff;
+}
+
+.ga-btn-primary:hover {
+    background: var(--ga-primary-dark);
+    color: #fff;
+}
+
+.ga-btn-success {
+    background: var(--ga-success);
+    color: #fff;
+}
+
+.ga-btn-danger {
+    background: var(--ga-danger);
+    color: #fff;
+}
+
+/* Tablas */
+.ga-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.ga-table th,
+.ga-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--ga-border);
+}
+
+.ga-table th {
+    background: var(--ga-bg-light);
+    font-weight: 600;
+}
+
+.ga-table tr:hover {
+    background: var(--ga-bg-light);
+}
+
+/* Badges */
+.ga-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.ga-badge-success {
+    background: #d7f0db;
+    color: #006e1f;
+}
+
+.ga-badge-warning {
+    background: #fcf3cf;
+    color: #8a6d00;
+}
+
+.ga-badge-danger {
+    background: #f4d4d5;
+    color: #8b0000;
+}
+
+/* Loading spinner */
+.ga-loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid var(--ga-border);
+    border-radius: 50%;
+    border-top-color: var(--ga-primary);
+    animation: ga-spin 1s linear infinite;
+}
+
+@keyframes ga-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Mensajes */
+.ga-notice {
+    padding: 12px;
+    border-left: 4px solid;
+    margin: 15px 0;
+    background: #fff;
+}
+
+.ga-notice-success {
+    border-color: var(--ga-success);
+    background: #d7f0db;
+}
+
+.ga-notice-error {
+    border-color: var(--ga-danger);
+    background: #f4d4d5;
+}
+
+/* Formularios */
+.ga-form-group {
+    margin-bottom: 20px;
+}
+
+.ga-form-label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.ga-form-input,
+.ga-form-select,
+.ga-form-textarea {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--ga-border);
+    border-radius: 3px;
+    font-size: 14px;
+}
+
+.ga-form-input:focus,
+.ga-form-select:focus,
+.ga-form-textarea:focus {
+    border-color: var(--ga-primary);
+    outline: none;
+    box-shadow: 0 0 0 1px var(--ga-primary);
+}
+
+/* Grid system */
+.ga-row {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0 -10px;
+}
+
+.ga-col {
+    padding: 0 10px;
+}
+
+.ga-col-6 {
+    flex: 0 0 50%;
+    max-width: 50%;
+}
+
+.ga-col-4 {
+    flex: 0 0 33.333%;
+    max-width: 33.333%;
+}
+
+.ga-col-3 {
+    flex: 0 0 25%;
+    max-width: 25%;
+}
+
+/* Responsive */
+@media (max-width: 782px) {
+    .ga-col-6,
+    .ga-col-4,
+    .ga-col-3 {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+}
