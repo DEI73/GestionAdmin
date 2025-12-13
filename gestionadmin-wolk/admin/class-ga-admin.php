@@ -116,6 +116,9 @@ class GA_Admin {
         require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-catalogo-bonos.php';
         require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-ordenes-acuerdos.php';
         require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-ordenes-bonos.php';
+
+        // Sprint 13-14: Catálogos de Configuración
+        require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-metodos-pago.php';
     }
 
     /**
@@ -351,6 +354,16 @@ class GA_Admin {
             'manage_options',
             '#ga-separator-config',
             '__return_false'
+        );
+
+        // Métodos de Pago (Sprint 13-14)
+        add_submenu_page(
+            'gestionadmin',
+            __('Métodos de Pago', 'gestionadmin-wolk'),
+            __('Métodos de Pago', 'gestionadmin-wolk'),
+            'manage_options',
+            'gestionadmin-metodos-pago',
+            array($this, 'render_metodos_pago')
         );
 
         // Páginas del Plugin
@@ -1292,6 +1305,21 @@ class GA_Admin {
             wp_die(esc_html__('No tienes permisos para acceder a esta página.', 'gestionadmin-wolk'));
         }
         include GA_PLUGIN_DIR . 'admin/views/solicitudes-cobro.php';
+    }
+
+    /**
+     * Renderizar página de Métodos de Pago
+     *
+     * Gestiona el catálogo de cuentas bancarias, wallets digitales
+     * y otros métodos de pago de la empresa.
+     *
+     * @since 1.6.0
+     */
+    public function render_metodos_pago() {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('No tienes permisos para acceder a esta página.', 'gestionadmin-wolk'));
+        }
+        include GA_PLUGIN_DIR . 'admin/views/metodos-pago.php';
     }
 
     // =========================================================================

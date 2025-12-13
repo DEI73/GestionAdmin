@@ -81,6 +81,9 @@ class GA_Activator {
         self::create_solicitudes_cobro_table($wpdb, $charset_collate);
         self::create_solicitudes_cobro_detalle_table($wpdb, $charset_collate);
 
+        // Crear tablas Sprint 13-14: Catálogos de Configuración
+        self::create_metodos_pago_table($wpdb, $charset_collate);
+
         // Insertar datos iniciales
         self::insert_initial_data($wpdb);
 
@@ -1223,6 +1226,9 @@ class GA_Activator {
 
         // Migración 1.5.3: Agregar columna url_manual a ordenes_trabajo
         self::migration_add_url_manual_ordenes($wpdb);
+
+        // Migración 1.6.0: Agregar columna metodo_pago_id a clientes
+        self::migration_add_metodo_pago_clientes($wpdb);
     }
 
     /**
@@ -1285,6 +1291,30 @@ class GA_Activator {
                 "ALTER TABLE {$table}
                  ADD COLUMN url_manual VARCHAR(500) NULL COMMENT 'URL del manual/documento del puesto'
                  AFTER requisitos"
+            );
+        }
+    }
+
+    /**
+     * Migración: Agregar columna metodo_pago_id a clientes
+     *
+     * Permite asociar un método de pago preferido a cada cliente.
+     * Se refiere a la tabla wp_ga_metodos_pago.
+     *
+     * @since 1.6.0
+     * @param object $wpdb Instancia global de WordPress Database
+     */
+    private static function migration_add_metodo_pago_clientes($wpdb) {
+        $table = $wpdb->prefix . 'ga_clientes';
+
+        // Verificar si la columna ya existe
+        $column_exists = $wpdb->get_results("SHOW COLUMNS FROM {$table} LIKE 'metodo_pago_id'");
+
+        if (empty($column_exists)) {
+            $wpdb->query(
+                "ALTER TABLE {$table}
+                 ADD COLUMN metodo_pago_id BIGINT UNSIGNED NULL COMMENT 'FK wp_ga_metodos_pago - Método de pago preferido'
+                 AFTER pais"
             );
         }
     }
@@ -2601,6 +2631,100 @@ class GA_Activator {
             INDEX idx_solicitud (solicitud_id),
             INDEX idx_comision (comision_id),
             UNIQUE KEY unique_solicitud_comision (solicitud_id, comision_id)
+        ) {$charset_collate};";
+
+        dbDelta($sql);
+    }
+
+    /**
+     * Crear tabla wp_ga_metodos_pago
+     *
+     * Catálogo maestro de métodos de pago: cuentas bancarias,
+     * wallets digitales (PayPal, Wise, Binance), cripto y efectivo.
+     *
+     * @since 1.6.0
+     */
+    private static function create_metodos_pago_table($wpdb, $charset_collate) {
+        $table_name = $wpdb->prefix . 'ga_metodos_pago';
+
+        $sql = "CREATE TABLE {$table_name} (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * TIPO Y CLASIFICACIÓN
+             * ───────────────────────────────────────────────────────────────── */
+            tipo ENUM('transferencia','paypal','wise','binance','stripe','crypto','efectivo','otro') NOT NULL,
+            pais_codigo VARCHAR(3) NULL COMMENT 'Código ISO del país (CO, US, MX, etc.)',
+            moneda VARCHAR(3) DEFAULT 'USD' COMMENT 'Código ISO de moneda',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * IDENTIFICACIÓN
+             * ───────────────────────────────────────────────────────────────── */
+            nombre VARCHAR(100) NOT NULL COMMENT 'Nombre descriptivo (ej: Bancolombia Principal)',
+            descripcion TEXT NULL COMMENT 'Notas internas',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * DATOS BANCARIOS (para tipo=transferencia)
+             * ───────────────────────────────────────────────────────────────── */
+            banco_nombre VARCHAR(100) NULL COMMENT 'Nombre del banco',
+            banco_tipo_cuenta ENUM('ahorros','corriente','checking','savings') NULL,
+            banco_numero_cuenta VARCHAR(50) NULL COMMENT 'Número de cuenta',
+            banco_titular VARCHAR(150) NULL COMMENT 'Nombre del titular',
+            banco_documento VARCHAR(50) NULL COMMENT 'Documento del titular',
+            banco_swift VARCHAR(20) NULL COMMENT 'Código SWIFT/BIC',
+            banco_iban VARCHAR(50) NULL COMMENT 'IBAN si aplica',
+            banco_routing VARCHAR(20) NULL COMMENT 'Routing number (USA)',
+            banco_clabe VARCHAR(20) NULL COMMENT 'CLABE (México)',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * DATOS WALLET DIGITAL (PayPal, Wise, Stripe)
+             * ───────────────────────────────────────────────────────────────── */
+            wallet_email VARCHAR(150) NULL COMMENT 'Email de la cuenta',
+            wallet_usuario VARCHAR(100) NULL COMMENT 'Username/handle',
+            wallet_account_id VARCHAR(100) NULL COMMENT 'ID de cuenta en plataforma',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * DATOS CRYPTO (Binance, wallets crypto)
+             * ───────────────────────────────────────────────────────────────── */
+            crypto_red ENUM('BTC','ETH','BSC','TRC20','ERC20','POLYGON','SOLANA','otro') NULL,
+            crypto_wallet_address VARCHAR(150) NULL COMMENT 'Dirección de wallet',
+            crypto_token VARCHAR(20) NULL COMMENT 'Token específico (USDT, USDC, etc.)',
+            crypto_binance_id VARCHAR(50) NULL COMMENT 'Binance Pay ID',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * CONTROL FINANCIERO
+             * ───────────────────────────────────────────────────────────────── */
+            saldo_actual DECIMAL(15,2) DEFAULT 0.00 COMMENT 'Saldo actual de la cuenta',
+            saldo_minimo DECIMAL(15,2) DEFAULT 0.00 COMMENT 'Alerta si baja de este monto',
+            limite_diario DECIMAL(15,2) NULL COMMENT 'Límite de operaciones diarias',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * CONFIGURACIÓN
+             * ───────────────────────────────────────────────────────────────── */
+            uso_pagos_proveedores TINYINT(1) DEFAULT 1 COMMENT 'Disponible para pagar',
+            uso_cobros_clientes TINYINT(1) DEFAULT 0 COMMENT 'Disponible para recibir',
+            es_principal TINYINT(1) DEFAULT 0 COMMENT 'Cuenta principal del país/tipo',
+            orden_prioridad INT DEFAULT 0 COMMENT 'Orden de preferencia',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ESTADO Y AUDITORÍA
+             * ───────────────────────────────────────────────────────────────── */
+            activo TINYINT(1) DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            created_by BIGINT UNSIGNED NULL,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            updated_by BIGINT UNSIGNED NULL,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ÍNDICES
+             * ───────────────────────────────────────────────────────────────── */
+            INDEX idx_tipo (tipo),
+            INDEX idx_pais (pais_codigo),
+            INDEX idx_moneda (moneda),
+            INDEX idx_activo (activo),
+            INDEX idx_uso_pagos (uso_pagos_proveedores),
+            INDEX idx_uso_cobros (uso_cobros_clientes),
+            INDEX idx_principal (es_principal)
         ) {$charset_collate};";
 
         dbDelta($sql);
