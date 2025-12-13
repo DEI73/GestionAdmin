@@ -73,6 +73,11 @@ class GA_Admin {
         add_action('wp_ajax_ga_change_aplicante_estado', array($this, 'ajax_change_aplicante_estado'));
         add_action('wp_ajax_ga_save_aplicacion', array($this, 'ajax_save_aplicacion'));
         add_action('wp_ajax_ga_change_aplicacion_estado', array($this, 'ajax_change_aplicacion_estado'));
+
+        // AJAX handlers - Páginas del Plugin (Configuración)
+        add_action('wp_ajax_ga_create_page', array($this, 'ajax_create_page'));
+        add_action('wp_ajax_ga_recreate_page', array($this, 'ajax_recreate_page'));
+        add_action('wp_ajax_ga_create_all_pages', array($this, 'ajax_create_all_pages'));
     }
 
     /**
@@ -100,6 +105,10 @@ class GA_Admin {
         require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-ordenes-trabajo.php';
         require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-aplicantes.php';
         require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-aplicaciones.php';
+
+        // Sprint 9-10: Facturación
+        require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-facturas.php';
+        require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-cotizaciones.php';
     }
 
     /**
@@ -245,6 +254,56 @@ class GA_Admin {
             'manage_options',
             'gestionadmin-aplicantes',
             array($this, 'render_aplicantes')
+        );
+
+        // Separador visual (Sprint 9-10: Facturación)
+        add_submenu_page(
+            'gestionadmin',
+            '',
+            '── ' . __('Facturación', 'gestionadmin-wolk') . ' ──',
+            'manage_options',
+            '#ga-separator-facturacion',
+            '__return_false'
+        );
+
+        // Facturas
+        add_submenu_page(
+            'gestionadmin',
+            __('Facturas', 'gestionadmin-wolk'),
+            __('Facturas', 'gestionadmin-wolk'),
+            'manage_options',
+            'gestionadmin-facturas',
+            array($this, 'render_facturas')
+        );
+
+        // Cotizaciones
+        add_submenu_page(
+            'gestionadmin',
+            __('Cotizaciones', 'gestionadmin-wolk'),
+            __('Cotizaciones', 'gestionadmin-wolk'),
+            'manage_options',
+            'gestionadmin-cotizaciones',
+            array($this, 'render_cotizaciones')
+        );
+
+        // Separador visual (Configuración)
+        add_submenu_page(
+            'gestionadmin',
+            '',
+            '── ' . __('Configuración', 'gestionadmin-wolk') . ' ──',
+            'manage_options',
+            '#ga-separator-config',
+            '__return_false'
+        );
+
+        // Páginas del Plugin
+        add_submenu_page(
+            'gestionadmin',
+            __('Páginas', 'gestionadmin-wolk'),
+            __('Páginas', 'gestionadmin-wolk'),
+            'manage_options',
+            'gestionadmin-paginas',
+            array($this, 'render_paginas')
         );
     }
 
@@ -1037,6 +1096,40 @@ class GA_Admin {
     }
 
     // =========================================================================
+    // RENDER PAGES - SPRINT 9-10 (FACTURACIÓN)
+    // =========================================================================
+
+    /**
+     * Renderizar Facturas
+     *
+     * Página de gestión de facturas con soporte multi-país.
+     * Permite crear, editar, enviar y gestionar pagos de facturas.
+     *
+     * @since 1.4.0
+     */
+    public function render_facturas() {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('No tienes permisos para acceder a esta página.', 'gestionadmin-wolk'));
+        }
+        include GA_PLUGIN_DIR . 'admin/views/facturas.php';
+    }
+
+    /**
+     * Renderizar Cotizaciones
+     *
+     * Página de gestión de cotizaciones/presupuestos.
+     * Permite crear, enviar, aprobar/rechazar y convertir a factura.
+     *
+     * @since 1.4.0
+     */
+    public function render_cotizaciones() {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('No tienes permisos para acceder a esta página.', 'gestionadmin-wolk'));
+        }
+        include GA_PLUGIN_DIR . 'admin/views/cotizaciones.php';
+    }
+
+    // =========================================================================
     // AJAX HANDLERS - ÓRDENES DE TRABAJO (Sprint 7-8)
     // =========================================================================
 
@@ -1345,5 +1438,112 @@ class GA_Admin {
         }
 
         wp_send_json_success(array('message' => $result['message']));
+    }
+
+    // =========================================================================
+    // PÁGINAS DEL PLUGIN (Configuración)
+    // =========================================================================
+
+    /**
+     * Renderizar Gestión de Páginas
+     *
+     * Panel para crear, verificar y gestionar las páginas
+     * de los portales públicos del plugin.
+     *
+     * @since 1.3.0
+     */
+    public function render_paginas() {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('No tienes permisos para acceder a esta página.', 'gestionadmin-wolk'));
+        }
+        include GA_PLUGIN_DIR . 'admin/views/paginas.php';
+    }
+
+    // =========================================================================
+    // AJAX HANDLERS - PÁGINAS DEL PLUGIN
+    // =========================================================================
+
+    /**
+     * AJAX: Crear una página específica
+     *
+     * @since 1.3.0
+     */
+    public function ajax_create_page() {
+        check_ajax_referer('ga_admin_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Sin permisos', 'gestionadmin-wolk')));
+        }
+
+        $page_key = sanitize_text_field($_POST['page_key'] ?? '');
+
+        if (empty($page_key)) {
+            wp_send_json_error(array('message' => __('Clave de página no especificada', 'gestionadmin-wolk')));
+        }
+
+        require_once GA_PLUGIN_DIR . 'includes/class-ga-pages-manager.php';
+        $pages_manager = GA_Pages_Manager::get_instance();
+
+        $result = $pages_manager->create_page($page_key);
+
+        if ($result['success']) {
+            wp_send_json_success($result);
+        } else {
+            wp_send_json_error($result);
+        }
+    }
+
+    /**
+     * AJAX: Recrear una página
+     *
+     * @since 1.3.0
+     */
+    public function ajax_recreate_page() {
+        check_ajax_referer('ga_admin_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Sin permisos', 'gestionadmin-wolk')));
+        }
+
+        $page_key = sanitize_text_field($_POST['page_key'] ?? '');
+
+        if (empty($page_key)) {
+            wp_send_json_error(array('message' => __('Clave de página no especificada', 'gestionadmin-wolk')));
+        }
+
+        require_once GA_PLUGIN_DIR . 'includes/class-ga-pages-manager.php';
+        $pages_manager = GA_Pages_Manager::get_instance();
+
+        $result = $pages_manager->recreate_page($page_key);
+
+        if ($result['success']) {
+            wp_send_json_success($result);
+        } else {
+            wp_send_json_error($result);
+        }
+    }
+
+    /**
+     * AJAX: Crear todas las páginas faltantes
+     *
+     * @since 1.3.0
+     */
+    public function ajax_create_all_pages() {
+        check_ajax_referer('ga_admin_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Sin permisos', 'gestionadmin-wolk')));
+        }
+
+        require_once GA_PLUGIN_DIR . 'includes/class-ga-pages-manager.php';
+        $pages_manager = GA_Pages_Manager::get_instance();
+
+        $result = $pages_manager->create_all_pages();
+
+        if ($result['success']) {
+            wp_send_json_success($result);
+        } else {
+            wp_send_json_error($result);
+        }
     }
 }

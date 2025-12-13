@@ -64,6 +64,12 @@ class GA_Activator {
         self::create_ordenes_trabajo_table($wpdb, $charset_collate);
         self::create_aplicaciones_orden_table($wpdb, $charset_collate);
 
+        // Crear tablas Sprint 9-10: Facturación
+        self::create_facturas_table($wpdb, $charset_collate);
+        self::create_facturas_detalle_table($wpdb, $charset_collate);
+        self::create_cotizaciones_table($wpdb, $charset_collate);
+        self::create_cotizaciones_detalle_table($wpdb, $charset_collate);
+
         // Insertar datos iniciales
         self::insert_initial_data($wpdb);
 
@@ -72,16 +78,33 @@ class GA_Activator {
 
         // Guardar versión del plugin
         add_option('ga_version', GA_VERSION);
-        update_option('ga_db_version', '1.3.0'); // Sprint 7-8: Marketplace
+        update_option('ga_db_version', '1.4.0'); // Sprint 9-10: Facturación
 
         // Crear roles personalizados
         self::create_custom_roles();
+
+        // Crear páginas del plugin
+        self::create_plugin_pages();
 
         // Flush rewrite rules
         flush_rewrite_rules();
 
         // Finalizar output buffering y descartar cualquier output capturado
         ob_end_clean();
+    }
+
+    /**
+     * Crear páginas del plugin
+     *
+     * Utiliza GA_Pages_Manager para crear todas las páginas
+     * necesarias para los portales públicos.
+     *
+     * @since 1.3.0
+     */
+    private static function create_plugin_pages() {
+        require_once GA_PLUGIN_DIR . 'includes/class-ga-pages-manager.php';
+        $pages_manager = GA_Pages_Manager::get_instance();
+        $pages_manager->create_all_pages();
     }
 
     /**
@@ -1217,5 +1240,543 @@ class GA_Activator {
             );
 
         }
+    }
+
+    // =========================================================================
+    // TABLAS SPRINT 9-10: FACTURACIÓN Y COTIZACIONES
+    // =========================================================================
+
+    /**
+     * Crear tabla wp_ga_facturas
+     *
+     * =========================================================================
+     * PROPÓSITO:
+     * =========================================================================
+     * Almacena las facturas emitidas a clientes. Es el documento fiscal principal
+     * que registra la venta de servicios profesionales.
+     *
+     * =========================================================================
+     * NUMERACIÓN AUTOMÁTICA:
+     * =========================================================================
+     * Formato: FAC-[PAÍS]-[AÑO]-[CONSECUTIVO]
+     * Ejemplos:
+     *   - FAC-CO-2024-0001 (Colombia)
+     *   - FAC-US-2024-0001 (USA)
+     *   - FAC-MX-2024-0001 (México)
+     *
+     * El consecutivo es por país y año, se reinicia cada año.
+     *
+     * =========================================================================
+     * CICLO DE VIDA DE UNA FACTURA:
+     * =========================================================================
+     *
+     *   BORRADOR ──► ENVIADA ──► PAGADA
+     *       │           │
+     *       │           └──► PARCIAL ──► PAGADA
+     *       │           │
+     *       │           └──► VENCIDA ──► PAGADA (pago tardío)
+     *       │
+     *       └──► ANULADA
+     *
+     * =========================================================================
+     * RELACIONES:
+     * =========================================================================
+     * - cliente_id → wp_ga_clientes (a quién se factura)
+     * - caso_id → wp_ga_casos (opcional, caso relacionado)
+     * - proyecto_id → wp_ga_proyectos (opcional, proyecto relacionado)
+     * - cotizacion_origen_id → wp_ga_cotizaciones (si viene de cotización)
+     * - pais_id → wp_ga_paises_config (configuración fiscal)
+     *
+     * @param object $wpdb Instancia global de WordPress Database
+     * @param string $charset_collate Charset y collation de la BD
+     */
+    private static function create_facturas_table($wpdb, $charset_collate) {
+        $table_name = $wpdb->prefix . 'ga_facturas';
+
+        $sql = "CREATE TABLE {$table_name} (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * IDENTIFICACIÓN
+             * El número se genera automáticamente según el país
+             * ───────────────────────────────────────────────────────────────── */
+            numero VARCHAR(30) NOT NULL UNIQUE COMMENT 'Formato: FAC-XX-YYYY-NNNN',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * CLIENTE Y DATOS DE FACTURACIÓN
+             * ───────────────────────────────────────────────────────────────── */
+            cliente_id INT NOT NULL COMMENT 'FK wp_ga_clientes',
+            cliente_nombre VARCHAR(200) COMMENT 'Snapshot: nombre al momento de facturar',
+            cliente_documento VARCHAR(50) COMMENT 'Snapshot: NIT/RFC al facturar',
+            cliente_direccion TEXT COMMENT 'Snapshot: dirección al facturar',
+            cliente_email VARCHAR(200) COMMENT 'Email para envío de factura',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * REFERENCIA A CASO/PROYECTO (opcional)
+             * ───────────────────────────────────────────────────────────────── */
+            caso_id INT COMMENT 'FK wp_ga_casos (si aplica)',
+            proyecto_id INT COMMENT 'FK wp_ga_proyectos (si aplica)',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ORIGEN (si viene de cotización)
+             * ───────────────────────────────────────────────────────────────── */
+            cotizacion_origen_id INT COMMENT 'FK wp_ga_cotizaciones (si se convirtió)',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * CONFIGURACIÓN FISCAL
+             * ───────────────────────────────────────────────────────────────── */
+            pais_facturacion VARCHAR(2) NOT NULL COMMENT 'Código ISO del país',
+            moneda VARCHAR(3) DEFAULT 'USD' COMMENT 'Código ISO moneda',
+            tasa_cambio DECIMAL(12,4) DEFAULT 1.0000 COMMENT 'Tasa al momento de facturar',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * IMPUESTOS Y RETENCIONES
+             * ───────────────────────────────────────────────────────────────── */
+            impuesto_nombre VARCHAR(50) COMMENT 'IVA, Sales Tax, etc.',
+            impuesto_porcentaje DECIMAL(5,2) DEFAULT 0.00 COMMENT 'Porcentaje de impuesto',
+            retencion_nombre VARCHAR(50) COMMENT 'Retención en la fuente, etc.',
+            retencion_porcentaje DECIMAL(5,2) DEFAULT 0.00 COMMENT 'Porcentaje de retención',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * MONTOS (calculados automáticamente desde detalle)
+             * ───────────────────────────────────────────────────────────────── */
+            subtotal DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Suma de líneas sin impuesto',
+            descuento_porcentaje DECIMAL(5,2) DEFAULT 0.00 COMMENT 'Descuento global %',
+            descuento_monto DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Monto de descuento',
+            base_impuesto DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Base para calcular impuesto',
+            impuesto_monto DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Monto del impuesto',
+            total DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Total con impuesto',
+            retencion_monto DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Monto de retención',
+            total_a_pagar DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Total neto a pagar',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * PAGOS RECIBIDOS
+             * ───────────────────────────────────────────────────────────────── */
+            monto_pagado DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Total pagado hasta ahora',
+            saldo_pendiente DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Saldo por cobrar',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * FECHAS
+             * ───────────────────────────────────────────────────────────────── */
+            fecha_emision DATE COMMENT 'Fecha de emisión de la factura',
+            fecha_vencimiento DATE COMMENT 'Fecha límite de pago',
+            dias_credito INT DEFAULT 30 COMMENT 'Días de crédito otorgados',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ESTADO DE LA FACTURA
+             * ───────────────────────────────────────────────────────────────── */
+            estado ENUM(
+                'BORRADOR',     /* En edición, no enviada */
+                'ENVIADA',      /* Enviada al cliente, pendiente de pago */
+                'PARCIAL',      /* Pago parcial recibido */
+                'PAGADA',       /* Completamente pagada */
+                'VENCIDA',      /* Pasó fecha de vencimiento sin pago total */
+                'ANULADA'       /* Anulada/cancelada */
+            ) DEFAULT 'BORRADOR',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * DATOS DE FACTURACIÓN ELECTRÓNICA (si aplica)
+             * ───────────────────────────────────────────────────────────────── */
+            numero_documento_pos VARCHAR(50) COMMENT 'Número en sistema POS externo',
+            consecutivo_dian VARCHAR(100) COMMENT 'Consecutivo DIAN/SAT/SII',
+            cufe VARCHAR(200) COMMENT 'Código Único de Factura Electrónica',
+            qr_code TEXT COMMENT 'Código QR de validación',
+            url_pdf VARCHAR(500) COMMENT 'URL del PDF firmado',
+            url_xml VARCHAR(500) COMMENT 'URL del XML firmado',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * INFORMACIÓN ADICIONAL
+             * ───────────────────────────────────────────────────────────────── */
+            concepto_general TEXT COMMENT 'Descripción general de la factura',
+            notas TEXT COMMENT 'Notas adicionales visibles al cliente',
+            notas_internas TEXT COMMENT 'Notas solo para uso interno',
+            terminos TEXT COMMENT 'Términos y condiciones',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * COSTOS INTERNOS (para cálculo de rentabilidad)
+             * ───────────────────────────────────────────────────────────────── */
+            costo_horas DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Costo de las horas facturadas',
+            comisiones_total DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Total comisiones generadas',
+            utilidad_bruta DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Utilidad antes de comisiones',
+            utilidad_neta DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Utilidad final',
+            margen_porcentaje DECIMAL(5,2) DEFAULT 0.00 COMMENT 'Margen de utilidad %',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * RESPONSABLES
+             * ───────────────────────────────────────────────────────────────── */
+            creado_por BIGINT UNSIGNED COMMENT 'Usuario WP que creó la factura',
+            enviado_por BIGINT UNSIGNED COMMENT 'Usuario que envió la factura',
+            fecha_envio DATETIME COMMENT 'Cuándo se envió al cliente',
+            anulado_por BIGINT UNSIGNED COMMENT 'Usuario que anuló (si aplica)',
+            fecha_anulacion DATETIME COMMENT 'Cuándo se anuló',
+            motivo_anulacion TEXT COMMENT 'Razón de anulación',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * AUDITORÍA
+             * ───────────────────────────────────────────────────────────────── */
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ÍNDICES para búsquedas frecuentes
+             * ───────────────────────────────────────────────────────────────── */
+            INDEX idx_numero (numero),
+            INDEX idx_cliente (cliente_id),
+            INDEX idx_caso (caso_id),
+            INDEX idx_proyecto (proyecto_id),
+            INDEX idx_estado (estado),
+            INDEX idx_pais (pais_facturacion),
+            INDEX idx_fecha_emision (fecha_emision),
+            INDEX idx_fecha_vencimiento (fecha_vencimiento)
+        ) {$charset_collate};";
+
+        dbDelta($sql);
+    }
+
+    /**
+     * Crear tabla wp_ga_facturas_detalle
+     *
+     * =========================================================================
+     * PROPÓSITO:
+     * =========================================================================
+     * Almacena las líneas de detalle de cada factura. Cada línea representa
+     * un concepto, servicio u hora facturada.
+     *
+     * =========================================================================
+     * TIPOS DE LÍNEA:
+     * =========================================================================
+     * - SERVICIO: Servicio profesional genérico
+     * - HORA: Horas trabajadas (puede venir de registro de horas)
+     * - PRODUCTO: Producto o licencia (poco común)
+     * - DESCUENTO: Línea de descuento negativa
+     * - AJUSTE: Ajuste de precio
+     *
+     * =========================================================================
+     * RELACIONES:
+     * =========================================================================
+     * - factura_id → wp_ga_facturas (factura padre)
+     * - registro_hora_id → wp_ga_registro_horas (si es hora facturada)
+     * - tarea_id → wp_ga_tareas (referencia opcional)
+     *
+     * @param object $wpdb Instancia global de WordPress Database
+     * @param string $charset_collate Charset y collation de la BD
+     */
+    private static function create_facturas_detalle_table($wpdb, $charset_collate) {
+        $table_name = $wpdb->prefix . 'ga_facturas_detalle';
+
+        $sql = "CREATE TABLE {$table_name} (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * RELACIÓN CON FACTURA
+             * ───────────────────────────────────────────────────────────────── */
+            factura_id INT NOT NULL COMMENT 'FK wp_ga_facturas',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ORDEN DE LA LÍNEA
+             * ───────────────────────────────────────────────────────────────── */
+            orden INT DEFAULT 0 COMMENT 'Orden de aparición en la factura',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * TIPO DE LÍNEA
+             * ───────────────────────────────────────────────────────────────── */
+            tipo ENUM('SERVICIO', 'HORA', 'PRODUCTO', 'DESCUENTO', 'AJUSTE') DEFAULT 'SERVICIO',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * DESCRIPCIÓN DEL CONCEPTO
+             * ───────────────────────────────────────────────────────────────── */
+            codigo VARCHAR(50) COMMENT 'Código del concepto (opcional)',
+            descripcion TEXT NOT NULL COMMENT 'Descripción del concepto/servicio',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * CANTIDADES Y PRECIOS
+             * ───────────────────────────────────────────────────────────────── */
+            cantidad DECIMAL(10,2) DEFAULT 1.00 COMMENT 'Cantidad (horas, unidades)',
+            unidad VARCHAR(20) DEFAULT 'UNIDAD' COMMENT 'Unidad de medida (HORA, UNIDAD, etc)',
+            precio_unitario DECIMAL(14,4) DEFAULT 0.0000 COMMENT 'Precio por unidad',
+            descuento_porcentaje DECIMAL(5,2) DEFAULT 0.00 COMMENT 'Descuento % de la línea',
+            descuento_monto DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Monto descuento calculado',
+            subtotal DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Cantidad * Precio - Descuento',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * IMPUESTO DE LA LÍNEA (algunos países lo manejan por línea)
+             * ───────────────────────────────────────────────────────────────── */
+            aplica_impuesto TINYINT(1) DEFAULT 1 COMMENT '1=Grava impuesto',
+            impuesto_porcentaje DECIMAL(5,2) DEFAULT 0.00 COMMENT '% impuesto si es por línea',
+            impuesto_monto DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Monto impuesto',
+            total_linea DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Subtotal + Impuesto',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * REFERENCIA A HORAS/TAREAS (si aplica)
+             * Para facturación de horas trabajadas
+             * ───────────────────────────────────────────────────────────────── */
+            registro_hora_id INT COMMENT 'FK wp_ga_registro_horas (si es hora)',
+            tarea_id INT COMMENT 'FK wp_ga_tareas (referencia)',
+            fecha_servicio DATE COMMENT 'Fecha en que se prestó el servicio',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * COSTO INTERNO (para rentabilidad)
+             * ───────────────────────────────────────────────────────────────── */
+            costo_unitario DECIMAL(14,4) DEFAULT 0.0000 COMMENT 'Costo real por unidad',
+            costo_total DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Costo total de la línea',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * AUDITORÍA
+             * ───────────────────────────────────────────────────────────────── */
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ÍNDICES
+             * ───────────────────────────────────────────────────────────────── */
+            INDEX idx_factura (factura_id),
+            INDEX idx_tipo (tipo),
+            INDEX idx_registro_hora (registro_hora_id),
+            INDEX idx_tarea (tarea_id),
+            INDEX idx_orden (orden)
+        ) {$charset_collate};";
+
+        dbDelta($sql);
+    }
+
+    /**
+     * Crear tabla wp_ga_cotizaciones
+     *
+     * =========================================================================
+     * PROPÓSITO:
+     * =========================================================================
+     * Almacena cotizaciones/presupuestos enviados a clientes antes de facturar.
+     * Una cotización aprobada puede convertirse en factura con un clic.
+     *
+     * =========================================================================
+     * NUMERACIÓN AUTOMÁTICA:
+     * =========================================================================
+     * Formato: COT-[AÑO]-[CONSECUTIVO]
+     * Ejemplos: COT-2024-0001, COT-2024-0002
+     *
+     * =========================================================================
+     * CICLO DE VIDA DE UNA COTIZACIÓN:
+     * =========================================================================
+     *
+     *   BORRADOR ──► ENVIADA ──► APROBADA ──► FACTURADA
+     *       │           │            │
+     *       │           │            └──► VENCIDA (no se facturó a tiempo)
+     *       │           └──► RECHAZADA
+     *       │           │
+     *       │           └──► VENCIDA (pasó vigencia)
+     *       │
+     *       └──► CANCELADA
+     *
+     * =========================================================================
+     * RELACIONES:
+     * =========================================================================
+     * - cliente_id → wp_ga_clientes
+     * - caso_id → wp_ga_casos (opcional)
+     * - proyecto_id → wp_ga_proyectos (opcional)
+     * - factura_generada_id → wp_ga_facturas (cuando se convierte)
+     *
+     * @param object $wpdb Instancia global de WordPress Database
+     * @param string $charset_collate Charset y collation de la BD
+     */
+    private static function create_cotizaciones_table($wpdb, $charset_collate) {
+        $table_name = $wpdb->prefix . 'ga_cotizaciones';
+
+        $sql = "CREATE TABLE {$table_name} (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * IDENTIFICACIÓN
+             * ───────────────────────────────────────────────────────────────── */
+            numero VARCHAR(30) NOT NULL UNIQUE COMMENT 'Formato: COT-YYYY-NNNN',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * CLIENTE Y DATOS
+             * ───────────────────────────────────────────────────────────────── */
+            cliente_id INT NOT NULL COMMENT 'FK wp_ga_clientes',
+            cliente_nombre VARCHAR(200) COMMENT 'Snapshot: nombre del cliente',
+            cliente_email VARCHAR(200) COMMENT 'Email para envío',
+            contacto_nombre VARCHAR(200) COMMENT 'Nombre del contacto',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * REFERENCIA A CASO/PROYECTO (opcional)
+             * ───────────────────────────────────────────────────────────────── */
+            caso_id INT COMMENT 'FK wp_ga_casos',
+            proyecto_id INT COMMENT 'FK wp_ga_proyectos',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * INFORMACIÓN GENERAL
+             * ───────────────────────────────────────────────────────────────── */
+            titulo VARCHAR(200) COMMENT 'Título de la cotización',
+            descripcion TEXT COMMENT 'Descripción general del servicio',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * CONFIGURACIÓN MONETARIA
+             * ───────────────────────────────────────────────────────────────── */
+            moneda VARCHAR(3) DEFAULT 'USD' COMMENT 'Código ISO moneda',
+            pais_destino VARCHAR(2) COMMENT 'País del cliente para impuestos',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * IMPUESTOS (para preview)
+             * ───────────────────────────────────────────────────────────────── */
+            impuesto_nombre VARCHAR(50) COMMENT 'IVA, etc.',
+            impuesto_porcentaje DECIMAL(5,2) DEFAULT 0.00,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * MONTOS (calculados desde detalle)
+             * ───────────────────────────────────────────────────────────────── */
+            subtotal DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Suma de líneas',
+            descuento_porcentaje DECIMAL(5,2) DEFAULT 0.00,
+            descuento_monto DECIMAL(14,2) DEFAULT 0.00,
+            impuesto_monto DECIMAL(14,2) DEFAULT 0.00,
+            total DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Total cotizado',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * FECHAS
+             * ───────────────────────────────────────────────────────────────── */
+            fecha_emision DATE COMMENT 'Fecha de emisión',
+            fecha_vigencia DATE COMMENT 'Válida hasta esta fecha',
+            dias_vigencia INT DEFAULT 30 COMMENT 'Días de vigencia',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ESTADO DE LA COTIZACIÓN
+             * ───────────────────────────────────────────────────────────────── */
+            estado ENUM(
+                'BORRADOR',     /* En edición */
+                'ENVIADA',      /* Enviada al cliente */
+                'APROBADA',     /* Cliente aceptó */
+                'RECHAZADA',    /* Cliente rechazó */
+                'FACTURADA',    /* Se generó factura */
+                'VENCIDA',      /* Pasó fecha de vigencia */
+                'CANCELADA'     /* Cancelada internamente */
+            ) DEFAULT 'BORRADOR',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * CONVERSIÓN A FACTURA
+             * ───────────────────────────────────────────────────────────────── */
+            factura_generada_id INT COMMENT 'FK wp_ga_facturas (cuando se convierte)',
+            fecha_conversion DATETIME COMMENT 'Cuándo se convirtió a factura',
+            convertido_por BIGINT UNSIGNED COMMENT 'Quién convirtió',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * INFORMACIÓN ADICIONAL
+             * ───────────────────────────────────────────────────────────────── */
+            notas TEXT COMMENT 'Notas visibles al cliente',
+            notas_internas TEXT COMMENT 'Notas internas',
+            terminos TEXT COMMENT 'Términos y condiciones',
+            forma_pago TEXT COMMENT 'Descripción de forma de pago',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * APROBACIÓN/RECHAZO
+             * ───────────────────────────────────────────────────────────────── */
+            fecha_respuesta DATETIME COMMENT 'Cuándo respondió el cliente',
+            motivo_rechazo TEXT COMMENT 'Si rechazó, por qué',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * RESPONSABLES
+             * ───────────────────────────────────────────────────────────────── */
+            creado_por BIGINT UNSIGNED COMMENT 'Quién creó',
+            enviado_por BIGINT UNSIGNED COMMENT 'Quién envió',
+            fecha_envio DATETIME COMMENT 'Cuándo se envió',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * AUDITORÍA
+             * ───────────────────────────────────────────────────────────────── */
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ÍNDICES
+             * ───────────────────────────────────────────────────────────────── */
+            INDEX idx_numero (numero),
+            INDEX idx_cliente (cliente_id),
+            INDEX idx_caso (caso_id),
+            INDEX idx_proyecto (proyecto_id),
+            INDEX idx_estado (estado),
+            INDEX idx_fecha_emision (fecha_emision),
+            INDEX idx_fecha_vigencia (fecha_vigencia)
+        ) {$charset_collate};";
+
+        dbDelta($sql);
+    }
+
+    /**
+     * Crear tabla wp_ga_cotizaciones_detalle
+     *
+     * =========================================================================
+     * PROPÓSITO:
+     * =========================================================================
+     * Almacena las líneas de detalle de cada cotización.
+     * Estructura similar a facturas_detalle para facilitar conversión.
+     *
+     * @param object $wpdb Instancia global de WordPress Database
+     * @param string $charset_collate Charset y collation de la BD
+     */
+    private static function create_cotizaciones_detalle_table($wpdb, $charset_collate) {
+        $table_name = $wpdb->prefix . 'ga_cotizaciones_detalle';
+
+        $sql = "CREATE TABLE {$table_name} (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * RELACIÓN CON COTIZACIÓN
+             * ───────────────────────────────────────────────────────────────── */
+            cotizacion_id INT NOT NULL COMMENT 'FK wp_ga_cotizaciones',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ORDEN Y TIPO
+             * ───────────────────────────────────────────────────────────────── */
+            orden INT DEFAULT 0 COMMENT 'Orden de aparición',
+            tipo ENUM('SERVICIO', 'HORA', 'PRODUCTO', 'DESCUENTO') DEFAULT 'SERVICIO',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * DESCRIPCIÓN
+             * ───────────────────────────────────────────────────────────────── */
+            codigo VARCHAR(50) COMMENT 'Código del servicio (opcional)',
+            descripcion TEXT NOT NULL COMMENT 'Descripción del concepto',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * CANTIDADES Y PRECIOS
+             * ───────────────────────────────────────────────────────────────── */
+            cantidad DECIMAL(10,2) DEFAULT 1.00,
+            unidad VARCHAR(20) DEFAULT 'UNIDAD',
+            precio_unitario DECIMAL(14,4) DEFAULT 0.0000,
+            descuento_porcentaje DECIMAL(5,2) DEFAULT 0.00,
+            descuento_monto DECIMAL(14,2) DEFAULT 0.00,
+            subtotal DECIMAL(14,2) DEFAULT 0.00,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * IMPUESTO (si se maneja por línea)
+             * ───────────────────────────────────────────────────────────────── */
+            aplica_impuesto TINYINT(1) DEFAULT 1,
+            impuesto_porcentaje DECIMAL(5,2) DEFAULT 0.00,
+            impuesto_monto DECIMAL(14,2) DEFAULT 0.00,
+            total_linea DECIMAL(14,2) DEFAULT 0.00,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ESTIMACIONES DE TIEMPO (para cotizaciones de horas)
+             * ───────────────────────────────────────────────────────────────── */
+            horas_estimadas DECIMAL(10,2) COMMENT 'Horas estimadas para este ítem',
+            tarifa_hora DECIMAL(14,4) COMMENT 'Tarifa por hora estimada',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * NOTAS
+             * ───────────────────────────────────────────────────────────────── */
+            notas TEXT COMMENT 'Notas adicionales de la línea',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * AUDITORÍA
+             * ───────────────────────────────────────────────────────────────── */
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ÍNDICES
+             * ───────────────────────────────────────────────────────────────── */
+            INDEX idx_cotizacion (cotizacion_id),
+            INDEX idx_tipo (tipo),
+            INDEX idx_orden (orden)
+        ) {$charset_collate};";
+
+        dbDelta($sql);
     }
 }

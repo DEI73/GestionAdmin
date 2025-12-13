@@ -204,6 +204,10 @@ class GA_Public {
      * Intercepta la carga de templates de WordPress y carga
      * los templates personalizados del plugin cuando corresponde.
      *
+     * Funciona de dos formas:
+     * 1. Por rewrite rules (query vars ga_portal, ga_section, ga_codigo)
+     * 2. Por páginas creadas con GA_Pages_Manager (detección por ID)
+     *
      * @since 1.3.0
      *
      * @param string $template Template original.
@@ -211,31 +215,42 @@ class GA_Public {
      * @return string Path al template a cargar.
      */
     public function load_template($template) {
+        // Método 1: Detectar por rewrite rules
         $portal = get_query_var('ga_portal');
 
-        if (empty($portal)) {
-            return $template;
+        if (!empty($portal)) {
+            $section = get_query_var('ga_section');
+            $codigo = get_query_var('ga_codigo');
+
+            $template_file = '';
+
+            switch ($portal) {
+                case 'trabajo':
+                    $template_file = $this->get_trabajo_template($section, $codigo);
+                    break;
+
+                case 'aplicante':
+                    $template_file = $this->get_aplicante_template($section);
+                    break;
+            }
+
+            if ($template_file && file_exists($template_file)) {
+                return $template_file;
+            }
         }
 
-        $section = get_query_var('ga_section');
-        $codigo = get_query_var('ga_codigo');
+        // Método 2: Detectar por páginas del plugin (GA_Pages_Manager)
+        if (is_page()) {
+            require_once GA_PLUGIN_DIR . 'includes/class-ga-pages-manager.php';
+            $pages_manager = GA_Pages_Manager::get_instance();
+            $page_key = $pages_manager->detect_current_page();
 
-        // Determinar qué template cargar
-        $template_file = '';
-
-        switch ($portal) {
-            case 'trabajo':
-                $template_file = $this->get_trabajo_template($section, $codigo);
-                break;
-
-            case 'aplicante':
-                $template_file = $this->get_aplicante_template($section);
-                break;
-        }
-
-        // Si encontramos un template, cargarlo
-        if ($template_file && file_exists($template_file)) {
-            return $template_file;
+            if ($page_key) {
+                $template_path = $pages_manager->get_template_path($page_key);
+                if ($template_path && file_exists($template_path)) {
+                    return $template_path;
+                }
+            }
         }
 
         return $template;
