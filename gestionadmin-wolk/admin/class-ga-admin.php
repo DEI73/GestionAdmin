@@ -44,6 +44,7 @@ class GA_Admin {
         add_action('wp_ajax_ga_delete_escala', array($this, 'ajax_delete_escala'));
         add_action('wp_ajax_ga_save_usuario', array($this, 'ajax_save_usuario'));
         add_action('wp_ajax_ga_save_pais', array($this, 'ajax_save_pais'));
+        add_action('wp_ajax_ga_delete_pais', array($this, 'ajax_delete_pais'));
 
         // AJAX handlers - Sprint 3-4 (Tareas y Timer)
         add_action('wp_ajax_ga_save_tarea', array($this, 'ajax_save_tarea'));
@@ -686,7 +687,7 @@ class GA_Admin {
             wp_send_json_error(array('message' => __('Sin permisos', 'gestionadmin-wolk')));
         }
 
-        $id = absint($_POST['id']);
+        $id = isset($_POST['id']) && !empty($_POST['id']) ? absint($_POST['id']) : 0;
         $data = array(
             'nombre' => sanitize_text_field($_POST['nombre']),
             'moneda_codigo' => sanitize_text_field($_POST['moneda_codigo']),
@@ -699,13 +700,46 @@ class GA_Admin {
             'activo' => absint($_POST['activo']),
         );
 
+        // Para nuevos países, incluir código ISO
+        if ($id === 0 && !empty($_POST['codigo_iso'])) {
+            $data['codigo_iso'] = strtoupper(sanitize_text_field($_POST['codigo_iso']));
+
+            // Validar formato (2 letras)
+            if (!preg_match('/^[A-Z]{2}$/', $data['codigo_iso'])) {
+                wp_send_json_error(array('message' => __('El código ISO debe ser exactamente 2 letras', 'gestionadmin-wolk')));
+            }
+        }
+
         $result = GA_Paises::save($id, $data);
 
         if (is_wp_error($result)) {
             wp_send_json_error(array('message' => $result->get_error_message()));
         }
 
-        wp_send_json_success(array('message' => __('País actualizado', 'gestionadmin-wolk')));
+        $message = $id > 0 ? __('País actualizado', 'gestionadmin-wolk') : __('País creado', 'gestionadmin-wolk');
+        wp_send_json_success(array('message' => $message));
+    }
+
+    public function ajax_delete_pais() {
+        check_ajax_referer('ga_admin_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Sin permisos', 'gestionadmin-wolk')));
+        }
+
+        $id = absint($_POST['id']);
+
+        if (!$id) {
+            wp_send_json_error(array('message' => __('ID inválido', 'gestionadmin-wolk')));
+        }
+
+        $result = GA_Paises::delete($id);
+
+        if (is_wp_error($result)) {
+            wp_send_json_error(array('message' => $result->get_error_message()));
+        }
+
+        wp_send_json_success(array('message' => __('País eliminado', 'gestionadmin-wolk')));
     }
 
     // =========================================================================

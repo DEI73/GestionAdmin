@@ -13,11 +13,18 @@ if (!defined('ABSPATH')) {
 $paises = GA_Paises::get_all();
 ?>
 <div class="wrap ga-admin">
-    <h1><?php esc_html_e('Configuración de Países', 'gestionadmin-wolk'); ?></h1>
-
-    <p class="description">
-        <?php esc_html_e('Configure los impuestos, retenciones y datos de facturación electrónica por país.', 'gestionadmin-wolk'); ?>
-    </p>
+    <!-- Header con botón agregar -->
+    <div class="ga-page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div>
+            <h1 style="margin: 0;"><?php esc_html_e('Configuración de Países', 'gestionadmin-wolk'); ?></h1>
+            <p class="description" style="margin: 5px 0 0 0;">
+                <?php esc_html_e('Configure los impuestos, retenciones y datos de facturación electrónica por país.', 'gestionadmin-wolk'); ?>
+            </p>
+        </div>
+        <button type="button" class="ga-btn ga-btn-primary" id="btn-agregar-pais">
+            + <?php esc_html_e('Agregar País', 'gestionadmin-wolk'); ?>
+        </button>
+    </div>
 
     <div class="ga-row">
         <!-- Listado -->
@@ -61,6 +68,11 @@ $paises = GA_Paises::get_all();
                                     <a href="#" class="ga-btn-edit-pais" data-id="<?php echo esc_attr($pais->id); ?>">
                                         <?php esc_html_e('Editar', 'gestionadmin-wolk'); ?>
                                     </a>
+                                    |
+                                    <a href="#" class="ga-btn-delete-pais" data-id="<?php echo esc_attr($pais->id); ?>"
+                                       data-nombre="<?php echo esc_attr($pais->nombre); ?>" style="color: #d63638;">
+                                        <?php esc_html_e('Eliminar', 'gestionadmin-wolk'); ?>
+                                    </a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -73,15 +85,26 @@ $paises = GA_Paises::get_all();
         <div class="ga-col ga-col-6">
             <div class="ga-card" id="ga-form-pais-card">
                 <div class="ga-card-header">
-                    <h2 id="ga-form-title-pais"><?php esc_html_e('Editar País', 'gestionadmin-wolk'); ?></h2>
+                    <h2 id="ga-form-title-pais"><?php esc_html_e('Agregar País', 'gestionadmin-wolk'); ?></h2>
                 </div>
 
                 <form id="ga-form-pais">
                     <input type="hidden" name="id" id="pais-id" value="">
 
-                    <div class="ga-form-group">
+                    <!-- Código ISO: editable solo para nuevos países -->
+                    <div class="ga-form-group" id="pais-codigo-display-group">
                         <label class="ga-form-label"><?php esc_html_e('Código ISO', 'gestionadmin-wolk'); ?></label>
-                        <p id="pais-codigo" style="font-weight: bold; font-size: 24px;"></p>
+                        <p id="pais-codigo-display" style="font-weight: bold; font-size: 24px; margin: 0;"></p>
+                    </div>
+
+                    <div class="ga-form-group" id="pais-codigo-input-group">
+                        <label class="ga-form-label" for="pais-codigo">
+                            <?php esc_html_e('Código ISO', 'gestionadmin-wolk'); ?> *
+                        </label>
+                        <input type="text" id="pais-codigo" name="codigo_iso" class="ga-form-input"
+                               maxlength="2" style="width: 80px; text-transform: uppercase;"
+                               placeholder="XX" pattern="[A-Za-z]{2}" required>
+                        <p class="description"><?php esc_html_e('Código de 2 letras (ej: PA, EC, PE)', 'gestionadmin-wolk'); ?></p>
                     </div>
 
                     <div class="ga-form-group">
@@ -197,17 +220,56 @@ jQuery(document).ready(function($) {
         );
     }, $paises)); ?>;
 
+    var isEditMode = false;
+
     // Ocultar formulario inicialmente
     $('#ga-form-pais').hide();
+    $('#pais-codigo-display-group').hide();
 
+    // Mostrar formulario en modo AGREGAR
+    function showAddForm() {
+        isEditMode = false;
+        $('#pais-select-message').hide();
+        $('#ga-form-pais').show();
+        $('#ga-form-title-pais').text('<?php echo esc_js(__('Agregar País', 'gestionadmin-wolk')); ?>');
+
+        // Mostrar input de código, ocultar display
+        $('#pais-codigo-input-group').show();
+        $('#pais-codigo-display-group').hide();
+
+        // Limpiar formulario
+        $('#pais-id').val('');
+        $('#pais-codigo').val('').prop('readonly', false);
+        $('#pais-nombre').val('');
+        $('#pais-moneda-codigo').val('');
+        $('#pais-moneda-simbolo').val('');
+        $('#pais-impuesto-nombre').val('IVA');
+        $('#pais-impuesto-porcentaje').val('0');
+        $('#pais-retencion').val('0');
+        $('#pais-electronica').prop('checked', false);
+        $('#pais-proveedor').val('');
+        $('#pais-activo').prop('checked', true);
+
+        toggleProveedorField();
+        $('#pais-codigo').focus();
+    }
+
+    // Mostrar formulario en modo EDITAR
     function loadPais(id) {
         var p = paises.find(function(p) { return p.id == id; });
         if (p) {
+            isEditMode = true;
             $('#pais-select-message').hide();
             $('#ga-form-pais').show();
+            $('#ga-form-title-pais').text('<?php echo esc_js(__('Editar País', 'gestionadmin-wolk')); ?>');
+
+            // Ocultar input de código, mostrar display (no editable)
+            $('#pais-codigo-input-group').hide();
+            $('#pais-codigo-display-group').show();
 
             $('#pais-id').val(p.id);
-            $('#pais-codigo').text(p.codigo_iso);
+            $('#pais-codigo-display').text(p.codigo_iso);
+            $('#pais-codigo').val(p.codigo_iso);
             $('#pais-nombre').val(p.nombre);
             $('#pais-moneda-codigo').val(p.moneda_codigo);
             $('#pais-moneda-simbolo').val(p.moneda_simbolo);
@@ -230,25 +292,62 @@ jQuery(document).ready(function($) {
         }
     }
 
+    // Convertir código a mayúsculas automáticamente
+    $('#pais-codigo').on('input', function() {
+        $(this).val($(this).val().toUpperCase());
+    });
+
     $('#pais-electronica').on('change', toggleProveedorField);
 
+    // Botón Agregar País
+    $('#btn-agregar-pais').on('click', function(e) {
+        e.preventDefault();
+        showAddForm();
+    });
+
+    // Botón Cancelar
     $('#ga-btn-cancelar-pais').on('click', function(e) {
         e.preventDefault();
         $('#ga-form-pais').hide();
         $('#pais-select-message').show();
     });
 
+    // Botón Editar
     $('.ga-btn-edit-pais').on('click', function(e) {
         e.preventDefault();
         loadPais($(this).data('id'));
     });
 
+    // Botón Eliminar
+    $('.ga-btn-delete-pais').on('click', function(e) {
+        e.preventDefault();
+        var id = $(this).data('id');
+        var nombre = $(this).data('nombre');
+
+        if (!confirm('<?php echo esc_js(__('¿Eliminar el país', 'gestionadmin-wolk')); ?> "' + nombre + '"?\n\n<?php echo esc_js(__('Esta acción no se puede deshacer.', 'gestionadmin-wolk')); ?>')) {
+            return;
+        }
+
+        $.post(gaAdmin.ajaxUrl, {
+            action: 'ga_delete_pais',
+            nonce: gaAdmin.nonce,
+            id: id
+        }, function(response) {
+            if (response.success) {
+                location.reload();
+            } else {
+                alert(response.data.message);
+            }
+        });
+    });
+
+    // Enviar formulario
     $('#ga-form-pais').on('submit', function(e) {
         e.preventDefault();
         var $btn = $(this).find('button[type="submit"]');
         $btn.prop('disabled', true).text(gaAdmin.i18n.saving);
 
-        $.post(gaAdmin.ajaxUrl, {
+        var data = {
             action: 'ga_save_pais',
             nonce: gaAdmin.nonce,
             id: $('#pais-id').val(),
@@ -261,7 +360,14 @@ jQuery(document).ready(function($) {
             requiere_electronica: $('#pais-electronica').is(':checked') ? 1 : 0,
             proveedor_electronica: $('#pais-proveedor').val(),
             activo: $('#pais-activo').is(':checked') ? 1 : 0
-        }, function(response) {
+        };
+
+        // Solo incluir código_iso si es nuevo país
+        if (!isEditMode) {
+            data.codigo_iso = $('#pais-codigo').val().toUpperCase();
+        }
+
+        $.post(gaAdmin.ajaxUrl, data, function(response) {
             if (response.success) {
                 location.reload();
             } else {
