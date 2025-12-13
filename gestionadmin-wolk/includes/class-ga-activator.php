@@ -1213,6 +1213,9 @@ class GA_Activator {
 
         // Migración 1.5.0: Agregar columna empresa_id a ordenes_trabajo
         self::migration_add_empresa_id_ordenes($wpdb);
+
+        // Migración 1.5.1: Estandarizar tiempos en MINUTOS
+        self::migration_tiempos_a_minutos($wpdb);
     }
 
     /**
@@ -1276,6 +1279,194 @@ class GA_Activator {
         if (empty($column_exists)) {
             $wpdb->query("ALTER TABLE {$table_ordenes} ADD COLUMN empresa_id INT COMMENT 'FK wp_ga_empresas - Empresa pagadora' AFTER cliente_id");
             $wpdb->query("ALTER TABLE {$table_ordenes} ADD INDEX idx_empresa (empresa_id)");
+        }
+    }
+
+    /**
+     * Migración: Estandarizar tiempos en MINUTOS
+     *
+     * Cambia columnas de horas_estimadas a minutos_estimados en tareas y subtareas.
+     * Agrega campo descripcion a subtareas.
+     * Convierte datos existentes de horas a minutos (x60).
+     *
+     * ESTÁNDAR: Todos los tiempos se guardan en MINUTOS en la BD.
+     *
+     * @param object $wpdb Instancia global de WordPress Database
+     */
+    private static function migration_tiempos_a_minutos($wpdb) {
+        $table_tareas = $wpdb->prefix . 'ga_tareas';
+        $table_subtareas = $wpdb->prefix . 'ga_subtareas';
+
+        // =====================================================================
+        // MIGRACIÓN TABLA TAREAS: horas_estimadas → minutos_estimados
+        // =====================================================================
+
+        // Verificar si la columna vieja existe
+        $columna_horas_tareas = $wpdb->get_results(
+            "SHOW COLUMNS FROM {$table_tareas} LIKE 'horas_estimadas'"
+        );
+
+        if (!empty($columna_horas_tareas)) {
+            // 1. Crear nueva columna minutos_estimados
+            $wpdb->query(
+                "ALTER TABLE {$table_tareas}
+                 ADD COLUMN minutos_estimados INT DEFAULT 60 COMMENT 'Tiempo estimado en MINUTOS'
+                 AFTER descripcion"
+            );
+
+            // 2. Migrar datos: convertir horas a minutos (x60)
+            $wpdb->query(
+                "UPDATE {$table_tareas}
+                 SET minutos_estimados = ROUND(COALESCE(horas_estimadas, 1) * 60)
+                 WHERE minutos_estimados IS NULL OR minutos_estimados = 60"
+            );
+
+            // 3. Eliminar columna vieja
+            $wpdb->query("ALTER TABLE {$table_tareas} DROP COLUMN horas_estimadas");
+        }
+
+        // Verificar si ya existe minutos_estimados pero con otro default
+        $columna_minutos_tareas = $wpdb->get_results(
+            "SHOW COLUMNS FROM {$table_tareas} LIKE 'minutos_estimados'"
+        );
+
+        // Si no existe la columna minutos_estimados, crearla
+        if (empty($columna_minutos_tareas)) {
+            $wpdb->query(
+                "ALTER TABLE {$table_tareas}
+                 ADD COLUMN minutos_estimados INT DEFAULT 60 COMMENT 'Tiempo estimado en MINUTOS'
+                 AFTER descripcion"
+            );
+        }
+
+        // =====================================================================
+        // MIGRACIÓN TABLA SUBTAREAS: horas_estimadas → minutos_estimados
+        // =====================================================================
+
+        $columna_horas_subtareas = $wpdb->get_results(
+            "SHOW COLUMNS FROM {$table_subtareas} LIKE 'horas_estimadas'"
+        );
+
+        if (!empty($columna_horas_subtareas)) {
+            // 1. Crear nueva columna minutos_estimados
+            $wpdb->query(
+                "ALTER TABLE {$table_subtareas}
+                 ADD COLUMN minutos_estimados INT DEFAULT 15 COMMENT 'Tiempo estimado en MINUTOS'
+                 AFTER nombre"
+            );
+
+            // 2. Migrar datos: convertir horas a minutos (x60)
+            $wpdb->query(
+                "UPDATE {$table_subtareas}
+                 SET minutos_estimados = ROUND(COALESCE(horas_estimadas, 0.25) * 60)
+                 WHERE minutos_estimados IS NULL OR minutos_estimados = 15"
+            );
+
+            // 3. Eliminar columna vieja
+            $wpdb->query("ALTER TABLE {$table_subtareas} DROP COLUMN horas_estimadas");
+        }
+
+        // Si no existe la columna minutos_estimados en subtareas, crearla
+        $columna_minutos_subtareas = $wpdb->get_results(
+            "SHOW COLUMNS FROM {$table_subtareas} LIKE 'minutos_estimados'"
+        );
+
+        if (empty($columna_minutos_subtareas)) {
+            $wpdb->query(
+                "ALTER TABLE {$table_subtareas}
+                 ADD COLUMN minutos_estimados INT DEFAULT 15 COMMENT 'Tiempo estimado en MINUTOS'
+                 AFTER nombre"
+            );
+        }
+
+        // =====================================================================
+        // AGREGAR COLUMNA DESCRIPCION A SUBTAREAS
+        // =====================================================================
+
+        $columna_descripcion = $wpdb->get_results(
+            "SHOW COLUMNS FROM {$table_subtareas} LIKE 'descripcion'"
+        );
+
+        if (empty($columna_descripcion)) {
+            $wpdb->query(
+                "ALTER TABLE {$table_subtareas}
+                 ADD COLUMN descripcion TEXT NULL COMMENT 'Descripción/instrucciones de la subtarea'
+                 AFTER nombre"
+            );
+        }
+
+        // =====================================================================
+        // MIGRACIÓN TAREAS: horas_reales → minutos_reales
+        // =====================================================================
+
+        $columna_horas_reales = $wpdb->get_results(
+            "SHOW COLUMNS FROM {$table_tareas} LIKE 'horas_reales'"
+        );
+
+        if (!empty($columna_horas_reales)) {
+            // 1. Crear nueva columna minutos_reales
+            $wpdb->query(
+                "ALTER TABLE {$table_tareas}
+                 ADD COLUMN minutos_reales INT DEFAULT 0 COMMENT 'Tiempo real en MINUTOS'"
+            );
+
+            // 2. Migrar datos: convertir horas a minutos (x60)
+            $wpdb->query(
+                "UPDATE {$table_tareas}
+                 SET minutos_reales = ROUND(COALESCE(horas_reales, 0) * 60)"
+            );
+
+            // 3. Eliminar columna vieja
+            $wpdb->query("ALTER TABLE {$table_tareas} DROP COLUMN horas_reales");
+        }
+
+        // Si no existe minutos_reales, crearla
+        $columna_minutos_reales = $wpdb->get_results(
+            "SHOW COLUMNS FROM {$table_tareas} LIKE 'minutos_reales'"
+        );
+
+        if (empty($columna_minutos_reales)) {
+            $wpdb->query(
+                "ALTER TABLE {$table_tareas}
+                 ADD COLUMN minutos_reales INT DEFAULT 0 COMMENT 'Tiempo real en MINUTOS'"
+            );
+        }
+
+        // =====================================================================
+        // MIGRACIÓN SUBTAREAS: horas_reales → minutos_reales
+        // =====================================================================
+
+        $columna_horas_reales_sub = $wpdb->get_results(
+            "SHOW COLUMNS FROM {$table_subtareas} LIKE 'horas_reales'"
+        );
+
+        if (!empty($columna_horas_reales_sub)) {
+            // 1. Crear nueva columna minutos_reales
+            $wpdb->query(
+                "ALTER TABLE {$table_subtareas}
+                 ADD COLUMN minutos_reales INT DEFAULT 0 COMMENT 'Tiempo real en MINUTOS'"
+            );
+
+            // 2. Migrar datos
+            $wpdb->query(
+                "UPDATE {$table_subtareas}
+                 SET minutos_reales = ROUND(COALESCE(horas_reales, 0) * 60)"
+            );
+
+            // 3. Eliminar columna vieja
+            $wpdb->query("ALTER TABLE {$table_subtareas} DROP COLUMN horas_reales");
+        }
+
+        // Si no existe minutos_reales en subtareas, crearla
+        $columna_minutos_reales_sub = $wpdb->get_results(
+            "SHOW COLUMNS FROM {$table_subtareas} LIKE 'minutos_reales'"
+        );
+
+        if (empty($columna_minutos_reales_sub)) {
+            $wpdb->query(
+                "ALTER TABLE {$table_subtareas}
+                 ADD COLUMN minutos_reales INT DEFAULT 0 COMMENT 'Tiempo real en MINUTOS'"
+            );
         }
     }
 

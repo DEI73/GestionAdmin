@@ -45,6 +45,11 @@ register_activation_hook(__FILE__, 'ga_activate_plugin');
 register_deactivation_hook(__FILE__, 'ga_deactivate_plugin');
 
 /**
+ * Funciones helper globales (tiempos, formatos, etc.)
+ */
+require_once GA_PLUGIN_DIR . 'includes/class-ga-helpers.php';
+
+/**
  * Clase principal del plugin
  */
 require_once GA_PLUGIN_DIR . 'includes/class-ga-loader.php';

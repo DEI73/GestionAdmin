@@ -273,6 +273,123 @@
     color: #0056b3;
 }
 
+/* ==========================================================================
+   INPUT TIEMPO (minutos con equivalencia en horas)
+   ========================================================================== */
+
+.ga-tiempo-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ga-tiempo-input-wrap .ga-form-input {
+    width: 100px;
+    text-align: right;
+}
+
+.ga-tiempo-sufijo {
+    color: #666;
+    font-size: 13px;
+}
+
+.ga-tiempo-equivalente {
+    color: var(--ga-primary);
+    font-weight: 600;
+    font-size: 13px;
+    background: #e0f0ff;
+    padding: 4px 8px;
+    border-radius: 3px;
+}
+
+/* ==========================================================================
+   SUBTAREAS CARDS
+   ========================================================================== */
+
+#ga-subtareas-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.ga-subtarea-card {
+    border: 1px solid var(--ga-border);
+    border-radius: 6px;
+    background: var(--ga-bg-light);
+    overflow: hidden;
+}
+
+.ga-subtarea-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 15px;
+    background: #fff;
+    border-bottom: 1px solid var(--ga-border);
+}
+
+.ga-subtarea-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: var(--ga-primary);
+    color: #fff;
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.ga-subtarea-header strong {
+    flex: 1;
+    font-size: 14px;
+}
+
+.ga-subtarea-header .ga-btn-remove-subtarea {
+    color: var(--ga-danger);
+    text-decoration: none;
+    font-size: 13px;
+}
+
+.ga-subtarea-header .ga-btn-remove-subtarea:hover {
+    text-decoration: underline;
+}
+
+.ga-subtarea-body {
+    padding: 15px;
+}
+
+.ga-subtarea-body .ga-form-group {
+    margin-bottom: 12px;
+}
+
+.ga-subtarea-body .ga-form-group:last-child {
+    margin-bottom: 0;
+}
+
+.ga-subtarea-body .ga-form-label {
+    font-size: 12px;
+    color: #555;
+    margin-bottom: 4px;
+}
+
+.ga-subtarea-body .ga-form-textarea {
+    resize: vertical;
+    min-height: 50px;
+}
+
+/* Badge secondary (estados neutros) */
+.ga-badge-secondary {
+    background: #e9ecef;
+    color: #555;
+}
+
+.ga-badge-primary {
+    background: #cce5ff;
+    color: #004085;
+}
+
 /* Responsive */
 @media (max-width: 782px) {
     .ga-col-6,
@@ -289,5 +406,13 @@
 
     #ga-timer-display {
         font-size: 36px !important;
+    }
+
+    .ga-tiempo-input-wrap {
+        flex-wrap: wrap;
+    }
+
+    .ga-subtarea-body {
+        padding: 12px;
     }
 }

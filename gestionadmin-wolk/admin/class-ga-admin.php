@@ -725,7 +725,7 @@ class GA_Admin {
             'descripcion' => sanitize_textarea_field($_POST['descripcion']),
             'asignado_a' => absint($_POST['asignado_a']),
             'supervisor_id' => absint($_POST['supervisor_id']),
-            'horas_estimadas' => floatval($_POST['horas_estimadas']),
+            'minutos_estimados' => absint($_POST['minutos_estimados']),
             'fecha_inicio' => sanitize_text_field($_POST['fecha_inicio']),
             'fecha_limite' => sanitize_text_field($_POST['fecha_limite']),
             'prioridad' => sanitize_text_field($_POST['prioridad']),
@@ -742,7 +742,8 @@ class GA_Admin {
                 $subtareas[] = array(
                     'id' => isset($subtarea['id']) ? absint($subtarea['id']) : 0,
                     'nombre' => sanitize_text_field($subtarea['nombre']),
-                    'horas_estimadas' => floatval($subtarea['horas_estimadas']),
+                    'descripcion' => isset($subtarea['descripcion']) ? sanitize_textarea_field($subtarea['descripcion']) : '',
+                    'minutos_estimados' => absint($subtarea['minutos_estimados'] ?? 15),
                     'orden' => absint($subtarea['orden']),
                 );
             }

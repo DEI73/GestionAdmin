@@ -215,11 +215,18 @@ $subtareas_edit = $edit_id > 0 ? GA_Tareas::get_subtareas($edit_id) : array();
                     </div>
                     <div class="ga-col ga-col-4">
                         <div class="ga-form-group">
-                            <label class="ga-form-label" for="tarea-horas">
-                                <?php esc_html_e('Horas Estimadas', 'gestionadmin-wolk'); ?>
+                            <label class="ga-form-label" for="tarea-minutos">
+                                <?php esc_html_e('Tiempo Estimado', 'gestionadmin-wolk'); ?> *
                             </label>
-                            <input type="number" id="tarea-horas" name="horas_estimadas" class="ga-form-input"
-                                   step="0.5" min="0" value="<?php echo $tarea_edit ? esc_attr($tarea_edit->horas_estimadas) : ''; ?>">
+                            <div class="ga-tiempo-input-wrap">
+                                <input type="number" id="tarea-minutos" name="minutos_estimados" class="ga-form-input"
+                                       min="1" max="2400" value="<?php echo $tarea_edit ? esc_attr($tarea_edit->minutos_estimados ?? 60) : '60'; ?>"
+                                       onchange="gaActualizarHoras(this, 'tarea-horas-display')">
+                                <span class="ga-tiempo-sufijo"><?php esc_html_e('minutos', 'gestionadmin-wolk'); ?></span>
+                                <span class="ga-tiempo-equivalente" id="tarea-horas-display">
+                                    = <?php echo $tarea_edit && isset($tarea_edit->minutos_estimados) ? esc_html(ga_minutos_a_horas($tarea_edit->minutos_estimados)) : '1.00'; ?> hrs
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -245,32 +252,43 @@ $subtareas_edit = $edit_id > 0 ? GA_Tareas::get_subtareas($edit_id) : array();
                     </div>
                 </div>
 
-                <!-- Subtareas -->
+                <!-- Subtareas - Formato Cards -->
                 <div class="ga-form-group" style="margin-top: 20px;">
                     <label class="ga-form-label"><?php esc_html_e('Subtareas', 'gestionadmin-wolk'); ?></label>
 
-                    <table class="ga-table" id="ga-subtareas-table">
-                        <thead>
-                            <tr>
-                                <th style="width: 50px;">#</th>
-                                <th><?php esc_html_e('Nombre', 'gestionadmin-wolk'); ?></th>
-                                <th style="width: 120px;"><?php esc_html_e('Horas Est.', 'gestionadmin-wolk'); ?></th>
-                                <th style="width: 80px;"><?php esc_html_e('Acciones', 'gestionadmin-wolk'); ?></th>
-                            </tr>
-                        </thead>
-                        <tbody id="ga-subtareas-body">
-                            <?php if (!empty($subtareas_edit)) : ?>
-                                <?php foreach ($subtareas_edit as $i => $sub) : ?>
-                                    <tr data-id="<?php echo esc_attr($sub->id); ?>">
-                                        <td><?php echo esc_html($i + 1); ?></td>
-                                        <td><input type="text" class="ga-form-input subtarea-nombre" value="<?php echo esc_attr($sub->nombre); ?>"></td>
-                                        <td><input type="number" class="ga-form-input subtarea-horas" step="0.5" min="0" value="<?php echo esc_attr($sub->horas_estimadas); ?>"></td>
-                                        <td><a href="#" class="ga-btn-remove-subtarea" style="color:#d63638;"><?php esc_html_e('Quitar', 'gestionadmin-wolk'); ?></a></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
+                    <div id="ga-subtareas-container">
+                        <?php if (!empty($subtareas_edit)) : ?>
+                            <?php foreach ($subtareas_edit as $i => $sub) : ?>
+                                <div class="ga-subtarea-card" data-id="<?php echo esc_attr($sub->id); ?>">
+                                    <div class="ga-subtarea-header">
+                                        <span class="ga-subtarea-num"><?php echo esc_html($i + 1); ?></span>
+                                        <strong><?php esc_html_e('Subtarea', 'gestionadmin-wolk'); ?></strong>
+                                        <a href="#" class="ga-btn-remove-subtarea"><?php esc_html_e('Quitar', 'gestionadmin-wolk'); ?></a>
+                                    </div>
+                                    <div class="ga-subtarea-body">
+                                        <div class="ga-form-group">
+                                            <label class="ga-form-label"><?php esc_html_e('Nombre', 'gestionadmin-wolk'); ?> *</label>
+                                            <input type="text" class="ga-form-input subtarea-nombre" value="<?php echo esc_attr($sub->nombre); ?>">
+                                        </div>
+                                        <div class="ga-form-group">
+                                            <label class="ga-form-label"><?php esc_html_e('Descripción/Instrucciones', 'gestionadmin-wolk'); ?></label>
+                                            <textarea class="ga-form-textarea subtarea-descripcion" rows="2"><?php echo esc_textarea($sub->descripcion ?? ''); ?></textarea>
+                                        </div>
+                                        <div class="ga-form-group">
+                                            <label class="ga-form-label"><?php esc_html_e('Tiempo', 'gestionadmin-wolk'); ?></label>
+                                            <div class="ga-tiempo-input-wrap">
+                                                <input type="number" class="ga-form-input subtarea-minutos" min="1" max="2400"
+                                                       value="<?php echo esc_attr($sub->minutos_estimados ?? 15); ?>"
+                                                       onchange="gaActualizarHoras(this)">
+                                                <span class="ga-tiempo-sufijo"><?php esc_html_e('min', 'gestionadmin-wolk'); ?></span>
+                                                <span class="ga-tiempo-equivalente">= <?php echo esc_html(ga_minutos_a_horas($sub->minutos_estimados ?? 15)); ?> hrs</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
 
                     <button type="button" class="ga-btn" id="ga-btn-add-subtarea" style="margin-top: 10px;">
                         + <?php esc_html_e('Agregar Subtarea', 'gestionadmin-wolk'); ?>
@@ -360,7 +378,7 @@ $subtareas_edit = $edit_id > 0 ? GA_Tareas::get_subtareas($edit_id) : array();
                             <th><?php esc_html_e('Asignado', 'gestionadmin-wolk'); ?></th>
                             <th><?php esc_html_e('Estado', 'gestionadmin-wolk'); ?></th>
                             <th><?php esc_html_e('Prioridad', 'gestionadmin-wolk'); ?></th>
-                            <th><?php esc_html_e('Horas', 'gestionadmin-wolk'); ?></th>
+                            <th><?php esc_html_e('Tiempo', 'gestionadmin-wolk'); ?></th>
                             <th><?php esc_html_e('Acciones', 'gestionadmin-wolk'); ?></th>
                         </tr>
                     </thead>
@@ -400,8 +418,12 @@ $subtareas_edit = $edit_id > 0 ? GA_Tareas::get_subtareas($edit_id) : array();
                                         <?php echo esc_html($prioridades[$tarea->prioridad] ?? $tarea->prioridad); ?>
                                     </span>
                                 </td>
-                                <td>
-                                    <?php echo esc_html(($tarea->horas_reales ?: '0') . ' / ' . ($tarea->horas_estimadas ?: '-')); ?>
+                                <td title="<?php echo esc_attr(sprintf(__('Real: %d min / Estimado: %d min', 'gestionadmin-wolk'), $tarea->minutos_reales ?? 0, $tarea->minutos_estimados ?? 0)); ?>">
+                                    <?php
+                                    $mins_reales = $tarea->minutos_reales ?? 0;
+                                    $mins_estimados = $tarea->minutos_estimados ?? 0;
+                                    echo esc_html(ga_formatear_tiempo_hm($mins_reales) . ' / ' . ($mins_estimados ? ga_formatear_tiempo_hm($mins_estimados) : '-'));
+                                    ?>
                                 </td>
                                 <td>
                                     <a href="<?php echo esc_url(admin_url('admin.php?page=gestionadmin-tareas&edit=' . $tarea->id)); ?>">
@@ -715,26 +737,55 @@ jQuery(document).ready(function($) {
 
     var subtareaCount = <?php echo count($subtareas_edit); ?>;
 
+    // Función para convertir minutos a horas (usado en onchange)
+    window.gaActualizarHoras = function(input, displayId) {
+        var minutos = parseInt($(input).val()) || 0;
+        var horas = (minutos / 60).toFixed(2);
+        if (displayId) {
+            $('#' + displayId).text('= ' + horas + ' hrs');
+        } else {
+            $(input).closest('.ga-tiempo-input-wrap').find('.ga-tiempo-equivalente').text('= ' + horas + ' hrs');
+        }
+    };
+
     $('#ga-btn-add-subtarea').on('click', function() {
         subtareaCount++;
-        $('#ga-subtareas-body').append(
-            '<tr data-id="0">' +
-            '<td>' + subtareaCount + '</td>' +
-            '<td><input type="text" class="ga-form-input subtarea-nombre" placeholder="<?php echo esc_js(__('Nombre de la subtarea', 'gestionadmin-wolk')); ?>"></td>' +
-            '<td><input type="number" class="ga-form-input subtarea-horas" step="0.5" min="0" value="1"></td>' +
-            '<td><a href="#" class="ga-btn-remove-subtarea" style="color:#d63638;"><?php echo esc_js(__('Quitar', 'gestionadmin-wolk')); ?></a></td>' +
-            '</tr>'
-        );
+        var html = '<div class="ga-subtarea-card" data-id="0">' +
+            '<div class="ga-subtarea-header">' +
+                '<span class="ga-subtarea-num">' + subtareaCount + '</span>' +
+                '<strong><?php echo esc_js(__('Subtarea', 'gestionadmin-wolk')); ?></strong>' +
+                '<a href="#" class="ga-btn-remove-subtarea"><?php echo esc_js(__('Quitar', 'gestionadmin-wolk')); ?></a>' +
+            '</div>' +
+            '<div class="ga-subtarea-body">' +
+                '<div class="ga-form-group">' +
+                    '<label class="ga-form-label"><?php echo esc_js(__('Nombre', 'gestionadmin-wolk')); ?> *</label>' +
+                    '<input type="text" class="ga-form-input subtarea-nombre" placeholder="<?php echo esc_js(__('Nombre de la subtarea', 'gestionadmin-wolk')); ?>">' +
+                '</div>' +
+                '<div class="ga-form-group">' +
+                    '<label class="ga-form-label"><?php echo esc_js(__('Descripción/Instrucciones', 'gestionadmin-wolk')); ?></label>' +
+                    '<textarea class="ga-form-textarea subtarea-descripcion" rows="2" placeholder="<?php echo esc_js(__('Instrucciones opcionales...', 'gestionadmin-wolk')); ?>"></textarea>' +
+                '</div>' +
+                '<div class="ga-form-group">' +
+                    '<label class="ga-form-label"><?php echo esc_js(__('Tiempo', 'gestionadmin-wolk')); ?></label>' +
+                    '<div class="ga-tiempo-input-wrap">' +
+                        '<input type="number" class="ga-form-input subtarea-minutos" min="1" max="2400" value="15" onchange="gaActualizarHoras(this)">' +
+                        '<span class="ga-tiempo-sufijo"><?php echo esc_js(__('min', 'gestionadmin-wolk')); ?></span>' +
+                        '<span class="ga-tiempo-equivalente">= 0.25 hrs</span>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+        $('#ga-subtareas-container').append(html);
     });
 
     $(document).on('click', '.ga-btn-remove-subtarea', function(e) {
         e.preventDefault();
-        $(this).closest('tr').remove();
+        $(this).closest('.ga-subtarea-card').remove();
         // Renumerar
-        $('#ga-subtareas-body tr').each(function(i) {
-            $(this).find('td:first').text(i + 1);
+        $('#ga-subtareas-container .ga-subtarea-card').each(function(i) {
+            $(this).find('.ga-subtarea-num').text(i + 1);
         });
-        subtareaCount = $('#ga-subtareas-body tr').length;
+        subtareaCount = $('#ga-subtareas-container .ga-subtarea-card').length;
     });
 
     $('#ga-form-tarea').on('submit', function(e) {
@@ -744,14 +795,15 @@ jQuery(document).ready(function($) {
 
         // Recopilar subtareas
         var subtareas = [];
-        $('#ga-subtareas-body tr').each(function(i) {
-            var $row = $(this);
-            var nombre = $row.find('.subtarea-nombre').val();
+        $('#ga-subtareas-container .ga-subtarea-card').each(function(i) {
+            var $card = $(this);
+            var nombre = $card.find('.subtarea-nombre').val();
             if (nombre) {
                 subtareas.push({
-                    id: $row.data('id'),
+                    id: $card.data('id'),
                     nombre: nombre,
-                    horas_estimadas: $row.find('.subtarea-horas').val() || 0,
+                    descripcion: $card.find('.subtarea-descripcion').val() || '',
+                    minutos_estimados: parseInt($card.find('.subtarea-minutos').val()) || 15,
                     orden: i
                 });
             }
@@ -765,7 +817,7 @@ jQuery(document).ready(function($) {
             descripcion: $('#tarea-descripcion').val(),
             asignado_a: $('#tarea-asignado').val(),
             supervisor_id: $('#tarea-supervisor').val(),
-            horas_estimadas: $('#tarea-horas').val(),
+            minutos_estimados: $('#tarea-minutos').val(),
             fecha_inicio: $('#tarea-inicio').val(),
             fecha_limite: $('#tarea-limite').val(),
             prioridad: $('#tarea-prioridad').val(),

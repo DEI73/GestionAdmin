@@ -140,9 +140,10 @@ class GA_Tareas {
             foreach ($subtareas as $orden => $subtarea) {
                 $sub_data = array(
                     'tarea_id' => $tarea_id,
-                    'nombre' => $subtarea['nombre'],
-                    'horas_estimadas' => $subtarea['horas_estimadas'],
-                    'orden' => isset($subtarea['orden']) ? $subtarea['orden'] : $orden,
+                    'nombre' => sanitize_text_field($subtarea['nombre']),
+                    'descripcion' => isset($subtarea['descripcion']) ? sanitize_textarea_field($subtarea['descripcion']) : null,
+                    'minutos_estimados' => absint($subtarea['minutos_estimados'] ?? 15),
+                    'orden' => isset($subtarea['orden']) ? absint($subtarea['orden']) : $orden,
                     'codigo' => sprintf('%d-%d', $tarea_id, $orden + 1),
                 );
 
@@ -479,8 +480,8 @@ class GA_Tareas {
             return new WP_Error('db_error', __('Error al detener timer', 'gestionadmin-wolk'));
         }
 
-        // Actualizar horas reales en tarea
-        self::update_horas_reales($registro->tarea_id);
+        // Actualizar minutos reales en tarea
+        self::update_minutos_reales($registro->tarea_id);
 
         // Actualizar subtarea si aplica
         if ($registro->subtarea_id) {
@@ -489,7 +490,7 @@ class GA_Tareas {
                 array('fecha_fin' => $hora_fin),
                 array('id' => $registro->subtarea_id)
             );
-            self::update_horas_subtarea($registro->subtarea_id);
+            self::update_minutos_subtarea($registro->subtarea_id);
         }
 
         return array(
@@ -544,9 +545,9 @@ class GA_Tareas {
     }
 
     /**
-     * Actualizar horas reales de tarea
+     * Actualizar minutos reales de tarea
      */
-    private static function update_horas_reales($tarea_id) {
+    private static function update_minutos_reales($tarea_id) {
         global $wpdb;
         $table = $wpdb->prefix . 'ga_tareas';
         $table_reg = $wpdb->prefix . 'ga_registro_horas';
@@ -556,15 +557,13 @@ class GA_Tareas {
             $tarea_id
         ));
 
-        $horas = round($minutos / 60, 2);
-
-        $wpdb->update($table, array('horas_reales' => $horas), array('id' => $tarea_id));
+        $wpdb->update($table, array('minutos_reales' => absint($minutos)), array('id' => $tarea_id));
     }
 
     /**
-     * Actualizar horas reales de subtarea
+     * Actualizar minutos reales de subtarea
      */
-    private static function update_horas_subtarea($subtarea_id) {
+    private static function update_minutos_subtarea($subtarea_id) {
         global $wpdb;
         $table = $wpdb->prefix . 'ga_subtareas';
         $table_reg = $wpdb->prefix . 'ga_registro_horas';
@@ -574,9 +573,7 @@ class GA_Tareas {
             $subtarea_id
         ));
 
-        $horas = round($minutos / 60, 2);
-
-        $wpdb->update($table, array('horas_reales' => $horas), array('id' => $subtarea_id));
+        $wpdb->update($table, array('minutos_reales' => absint($minutos)), array('id' => $subtarea_id));
     }
 
     /**
