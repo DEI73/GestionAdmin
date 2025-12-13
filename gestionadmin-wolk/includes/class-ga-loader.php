@@ -41,7 +41,6 @@ class GA_Loader {
         $this->filters = array();
 
         $this->load_dependencies();
-        $this->define_admin_hooks();
         $this->define_public_hooks();
     }
 
@@ -61,25 +60,14 @@ class GA_Loader {
      * Cargar las dependencias requeridas para este plugin
      */
     private function load_dependencies() {
-        // Cargar clases principales
-        // require_once GA_PLUGIN_DIR . 'admin/class-ga-admin.php';
-        // require_once GA_PLUGIN_DIR . 'public/class-ga-public.php';
+        // Cargar clase de administración (carga todos los módulos y menús)
+        if (is_admin()) {
+            require_once GA_PLUGIN_DIR . 'admin/class-ga-admin.php';
+            GA_Admin::get_instance();
+        }
 
-        // Cargar módulos (se agregarán en sprints futuros)
-        // require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-departamentos.php';
-        // require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-usuarios.php';
-        // require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-tareas.php';
-    }
-
-    /**
-     * Registrar todos los hooks relacionados con el área de administración
-     */
-    private function define_admin_hooks() {
-        // Agregar menús de administración
-        $this->add_action('admin_menu', $this, 'add_admin_menu');
-
-        // Cargar scripts y estilos del admin
-        $this->add_action('admin_enqueue_scripts', $this, 'enqueue_admin_assets');
+        // AJAX handler para obtener escalas (disponible en admin)
+        add_action('wp_ajax_ga_get_escalas', array($this, 'ajax_get_escalas'));
     }
 
     /**
@@ -88,72 +76,6 @@ class GA_Loader {
     private function define_public_hooks() {
         // Cargar scripts y estilos públicos
         $this->add_action('wp_enqueue_scripts', $this, 'enqueue_public_assets');
-    }
-
-    /**
-     * Agregar menú de administración
-     */
-    public function add_admin_menu() {
-        add_menu_page(
-            __('GestionAdmin', 'gestionadmin-wolk'),
-            __('GestionAdmin', 'gestionadmin-wolk'),
-            'manage_options',
-            'gestionadmin',
-            array($this, 'render_admin_page'),
-            'dashicons-businessperson',
-            30
-        );
-    }
-
-    /**
-     * Renderizar página principal de administración
-     */
-    public function render_admin_page() {
-        if (!current_user_can('manage_options')) {
-            wp_die(__('No tienes permisos para acceder a esta página.', 'gestionadmin-wolk'));
-        }
-
-        echo '<div class="wrap">';
-        echo '<h1>' . esc_html__('GestionAdmin by Wolk', 'gestionadmin-wolk') . '</h1>';
-        echo '<p>' . esc_html__('Sistema integral de gestión empresarial', 'gestionadmin-wolk') . '</p>';
-        echo '<p><strong>' . esc_html__('Versión:', 'gestionadmin-wolk') . '</strong> ' . esc_html(GA_VERSION) . '</p>';
-        echo '</div>';
-    }
-
-    /**
-     * Cargar assets del admin
-     *
-     * @param string $hook_suffix
-     */
-    public function enqueue_admin_assets($hook_suffix) {
-        if (strpos($hook_suffix, 'gestionadmin') === false) {
-            return;
-        }
-
-        wp_enqueue_style(
-            'ga-admin-styles',
-            GA_PLUGIN_URL . 'assets/css/admin.css',
-            array(),
-            GA_VERSION
-        );
-
-        wp_enqueue_script(
-            'ga-admin-scripts',
-            GA_PLUGIN_URL . 'assets/js/admin.js',
-            array('jquery'),
-            GA_VERSION,
-            true
-        );
-
-        // Pasar datos al JavaScript
-        wp_localize_script('ga-admin-scripts', 'gaAdminData', array(
-            'ajaxUrl' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('ga_ajax_nonce'),
-            'i18n' => array(
-                'error' => __('Error al procesar la solicitud', 'gestionadmin-wolk'),
-                'success' => __('Operación completada exitosamente', 'gestionadmin-wolk'),
-            )
-        ));
     }
 
     /**
@@ -174,6 +96,24 @@ class GA_Loader {
             GA_VERSION,
             true
         );
+    }
+
+    /**
+     * AJAX: Obtener escalas de un puesto
+     */
+    public function ajax_get_escalas() {
+        check_ajax_referer('ga_admin_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Sin permisos', 'gestionadmin-wolk')));
+        }
+
+        $puesto_id = absint($_GET['puesto_id']);
+
+        require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-puestos.php';
+        $escalas = GA_Puestos::get_escalas($puesto_id);
+
+        wp_send_json_success($escalas);
     }
 
     /**

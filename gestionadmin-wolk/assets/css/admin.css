@@ -211,6 +211,68 @@
     max-width: 25%;
 }
 
+/* Timer Widget */
+#ga-timer-widget {
+    border: 2px solid var(--ga-primary);
+}
+
+#ga-timer-display {
+    color: var(--ga-primary);
+    letter-spacing: 2px;
+}
+
+#ga-timer-widget.timer-paused {
+    border-color: var(--ga-warning);
+}
+
+#ga-timer-widget.timer-paused #ga-timer-display {
+    color: var(--ga-warning);
+}
+
+#ga-timer-controls button {
+    margin-left: 5px;
+}
+
+/* Modal styles */
+#ga-modal-pausa,
+#ga-modal-stop {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 50px;
+}
+
+/* Progress bar for tasks */
+.ga-progress {
+    background: #e0e0e0;
+    height: 6px;
+    border-radius: 3px;
+    margin-top: 5px;
+}
+
+.ga-progress-bar {
+    background: var(--ga-success);
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s;
+}
+
+/* Priority colors */
+.priority-urgente {
+    color: var(--ga-danger);
+    font-weight: bold;
+}
+
+.priority-alta {
+    color: var(--ga-warning);
+}
+
+/* Status badges extended */
+.ga-badge-info {
+    background: #e0f0ff;
+    color: #0056b3;
+}
+
 /* Responsive */
 @media (max-width: 782px) {
     .ga-col-6,
@@ -218,5 +280,14 @@
     .ga-col-3 {
         flex: 0 0 100%;
         max-width: 100%;
+    }
+
+    #ga-timer-widget > div {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    #ga-timer-display {
+        font-size: 36px !important;
     }
 }

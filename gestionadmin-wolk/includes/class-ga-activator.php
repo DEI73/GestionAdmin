@@ -35,7 +35,7 @@ class GA_Activator {
 
         $charset_collate = $wpdb->get_charset_collate();
 
-        // Crear tablas
+        // Crear tablas Sprint 1-2: Fundamentos
         self::create_departamentos_table($wpdb, $charset_collate);
         self::create_puestos_table($wpdb, $charset_collate);
         self::create_puestos_escalas_table($wpdb, $charset_collate);
@@ -43,12 +43,19 @@ class GA_Activator {
         self::create_supervisiones_table($wpdb, $charset_collate);
         self::create_paises_config_table($wpdb, $charset_collate);
 
+        // Crear tablas Sprint 3-4: Core Operativo
+        self::create_catalogo_tareas_table($wpdb, $charset_collate);
+        self::create_tareas_table($wpdb, $charset_collate);
+        self::create_subtareas_table($wpdb, $charset_collate);
+        self::create_registro_horas_table($wpdb, $charset_collate);
+        self::create_pausas_timer_table($wpdb, $charset_collate);
+
         // Insertar datos iniciales
         self::insert_initial_data($wpdb);
 
         // Guardar versión del plugin
         add_option('ga_version', GA_VERSION);
-        add_option('ga_db_version', '1.0.0');
+        update_option('ga_db_version', '1.1.0');
 
         // Crear roles personalizados
         self::create_custom_roles();
@@ -371,5 +378,181 @@ class GA_Activator {
         if (!get_role('ga_aplicante')) {
             add_role('ga_aplicante', __('Aplicante', 'gestionadmin-wolk'), $capabilities_aplicante);
         }
+    }
+
+    // =========================================================================
+    // TABLAS SPRINT 3-4: CORE OPERATIVO
+    // =========================================================================
+
+    /**
+     * Crear tabla wp_ga_catalogo_tareas
+     */
+    private static function create_catalogo_tareas_table($wpdb, $charset_collate) {
+        $table_name = $wpdb->prefix . 'ga_catalogo_tareas';
+
+        $sql = "CREATE TABLE {$table_name} (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            codigo VARCHAR(20) NOT NULL UNIQUE,
+            nombre VARCHAR(200) NOT NULL,
+            descripcion TEXT,
+            departamento_id INT,
+            puesto_id INT,
+            horas_estimadas DECIMAL(10,2),
+            frecuencia ENUM('POR_SOLICITUD', 'DIARIA', 'SEMANAL', 'QUINCENAL', 'MENSUAL', 'TRIMESTRAL', 'SEMESTRAL') DEFAULT 'POR_SOLICITUD',
+            frecuencia_dias INT,
+            url_instrucciones VARCHAR(500),
+            instrucciones_texto TEXT,
+            flujo_revision ENUM('DEFAULT_PUESTO', 'PERSONALIZADO') DEFAULT 'DEFAULT_PUESTO',
+            revisor_tipo ENUM('NINGUNO', 'QA_DEPARTAMENTO', 'USUARIO_ESPECIFICO', 'PAR'),
+            revisor_usuario_id BIGINT UNSIGNED,
+            aprobador_tipo ENUM('JEFE_DIRECTO', 'JEFE_DEPARTAMENTO', 'USUARIO_ESPECIFICO', 'AUTO'),
+            aprobador_usuario_id BIGINT UNSIGNED,
+            requiere_segundo_aprobador TINYINT(1) DEFAULT 0,
+            segundo_aprobador_nivel INT,
+            activo TINYINT(1) DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_departamento (departamento_id),
+            INDEX idx_puesto (puesto_id),
+            INDEX idx_codigo (codigo),
+            INDEX idx_activo (activo)
+        ) {$charset_collate};";
+
+        dbDelta($sql);
+    }
+
+    /**
+     * Crear tabla wp_ga_tareas
+     */
+    private static function create_tareas_table($wpdb, $charset_collate) {
+        $table_name = $wpdb->prefix . 'ga_tareas';
+
+        $sql = "CREATE TABLE {$table_name} (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            numero VARCHAR(20) NOT NULL UNIQUE,
+            catalogo_tarea_id INT,
+            nombre VARCHAR(200) NOT NULL,
+            descripcion TEXT,
+            proyecto_id INT,
+            caso_id INT,
+            asignado_a BIGINT UNSIGNED NOT NULL,
+            contrato_trabajo_id INT,
+            supervisor_id BIGINT UNSIGNED,
+            aprobador_id BIGINT UNSIGNED,
+            horas_estimadas DECIMAL(10,2),
+            horas_reales DECIMAL(10,2) DEFAULT 0,
+            fecha_inicio DATE,
+            fecha_limite DATE,
+            fecha_completada DATETIME,
+            estado ENUM('PENDIENTE', 'EN_PROGRESO', 'PAUSADA', 'COMPLETADA', 'EN_QA', 'APROBADA_QA', 'EN_REVISION', 'APROBADA', 'RECHAZADA', 'PAGADA', 'CANCELADA') DEFAULT 'PENDIENTE',
+            prioridad ENUM('BAJA', 'MEDIA', 'ALTA', 'URGENTE') DEFAULT 'MEDIA',
+            url_instrucciones VARCHAR(500),
+            instrucciones_texto TEXT,
+            porcentaje_avance INT DEFAULT 0,
+            timedoctor_task_id VARCHAR(50),
+            created_by BIGINT UNSIGNED,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_numero (numero),
+            INDEX idx_catalogo (catalogo_tarea_id),
+            INDEX idx_asignado (asignado_a),
+            INDEX idx_supervisor (supervisor_id),
+            INDEX idx_estado (estado),
+            INDEX idx_prioridad (prioridad),
+            INDEX idx_fecha_limite (fecha_limite)
+        ) {$charset_collate};";
+
+        dbDelta($sql);
+    }
+
+    /**
+     * Crear tabla wp_ga_subtareas
+     */
+    private static function create_subtareas_table($wpdb, $charset_collate) {
+        $table_name = $wpdb->prefix . 'ga_subtareas';
+
+        $sql = "CREATE TABLE {$table_name} (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            tarea_id INT NOT NULL,
+            codigo VARCHAR(20),
+            nombre VARCHAR(200) NOT NULL,
+            descripcion TEXT,
+            orden INT DEFAULT 0,
+            horas_estimadas DECIMAL(10,2),
+            horas_reales DECIMAL(10,2) DEFAULT 0,
+            estado ENUM('PENDIENTE', 'EN_PROGRESO', 'COMPLETADA') DEFAULT 'PENDIENTE',
+            fecha_inicio DATETIME,
+            fecha_fin DATETIME,
+            notas TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_tarea (tarea_id),
+            INDEX idx_orden (orden),
+            INDEX idx_estado (estado)
+        ) {$charset_collate};";
+
+        dbDelta($sql);
+    }
+
+    /**
+     * Crear tabla wp_ga_registro_horas
+     */
+    private static function create_registro_horas_table($wpdb, $charset_collate) {
+        $table_name = $wpdb->prefix . 'ga_registro_horas';
+
+        $sql = "CREATE TABLE {$table_name} (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            usuario_id BIGINT UNSIGNED NOT NULL,
+            tarea_id INT NOT NULL,
+            subtarea_id INT,
+            proyecto_id INT,
+            contrato_trabajo_id INT,
+            fecha DATE NOT NULL,
+            hora_inicio DATETIME NOT NULL,
+            hora_fin DATETIME,
+            minutos_totales INT DEFAULT 0,
+            minutos_pausas INT DEFAULT 0,
+            minutos_efectivos INT DEFAULT 0,
+            descripcion TEXT,
+            estado ENUM('ACTIVO', 'BORRADOR', 'ENVIADO', 'EN_QA', 'APROBADO_QA', 'APROBADO', 'RECHAZADO', 'PAGADO') DEFAULT 'ACTIVO',
+            aprobado_qa_por BIGINT UNSIGNED,
+            fecha_aprobacion_qa DATETIME,
+            aprobado_por BIGINT UNSIGNED,
+            fecha_aprobacion DATETIME,
+            motivo_rechazo TEXT,
+            tarifa_hora DECIMAL(10,2),
+            monto_calculado DECIMAL(12,2),
+            incluido_en_cobro_id INT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_usuario (usuario_id),
+            INDEX idx_tarea (tarea_id),
+            INDEX idx_subtarea (subtarea_id),
+            INDEX idx_fecha (fecha),
+            INDEX idx_estado (estado)
+        ) {$charset_collate};";
+
+        dbDelta($sql);
+    }
+
+    /**
+     * Crear tabla wp_ga_pausas_timer
+     */
+    private static function create_pausas_timer_table($wpdb, $charset_collate) {
+        $table_name = $wpdb->prefix . 'ga_pausas_timer';
+
+        $sql = "CREATE TABLE {$table_name} (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            registro_hora_id INT NOT NULL,
+            hora_pausa DATETIME NOT NULL,
+            hora_reanudacion DATETIME,
+            minutos INT DEFAULT 0,
+            motivo ENUM('ALMUERZO', 'REUNION', 'EMERGENCIA', 'DESCANSO', 'OTRO') DEFAULT 'OTRO',
+            nota VARCHAR(200),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_registro (registro_hora_id)
+        ) {$charset_collate};";
+
+        dbDelta($sql);
     }
 }
