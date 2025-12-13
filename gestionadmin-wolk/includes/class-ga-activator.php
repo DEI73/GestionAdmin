@@ -55,6 +55,11 @@ class GA_Activator {
         self::create_casos_table($wpdb, $charset_collate);
         self::create_proyectos_table($wpdb, $charset_collate);
 
+        // Crear tablas Sprint 7-8: Marketplace y Órdenes de Trabajo
+        self::create_aplicantes_table($wpdb, $charset_collate);
+        self::create_ordenes_trabajo_table($wpdb, $charset_collate);
+        self::create_aplicaciones_orden_table($wpdb, $charset_collate);
+
         // Insertar datos iniciales
         self::insert_initial_data($wpdb);
 
@@ -63,7 +68,7 @@ class GA_Activator {
 
         // Guardar versión del plugin
         add_option('ga_version', GA_VERSION);
-        update_option('ga_db_version', '1.2.0'); // Sprint 5-6: Clientes y Proyectos
+        update_option('ga_db_version', '1.3.0'); // Sprint 7-8: Marketplace
 
         // Crear roles personalizados
         self::create_custom_roles();
@@ -716,6 +721,435 @@ class GA_Activator {
             INDEX idx_estado (estado),
             INDEX idx_responsable (responsable_id),
             INDEX idx_fecha_inicio (fecha_inicio)
+        ) {$charset_collate};";
+
+        dbDelta($sql);
+    }
+
+    // =========================================================================
+    // TABLAS SPRINT 7-8: MARKETPLACE Y ÓRDENES DE TRABAJO
+    // =========================================================================
+
+    /**
+     * Crear tabla wp_ga_aplicantes
+     *
+     * =========================================================================
+     * PROPÓSITO:
+     * =========================================================================
+     * Almacena información de personas/empresas que aplican a órdenes de trabajo.
+     * Pueden ser freelancers (persona natural) o empresas externas.
+     *
+     * Esta tabla es el CORAZÓN del marketplace - cada aplicante tiene su perfil
+     * con documentos, habilidades y datos de pago para cuando se le contrate.
+     *
+     * =========================================================================
+     * RELACIONES:
+     * =========================================================================
+     * - usuario_wp_id → wp_users (login al portal)
+     * - pais → wp_ga_paises_config (para datos fiscales)
+     * - Muchos aplicantes pueden aplicar a muchas órdenes (M:N via aplicaciones)
+     *
+     * =========================================================================
+     * FLUJO DE USO:
+     * =========================================================================
+     * 1. Persona ve orden de trabajo en portal público
+     * 2. Se registra como aplicante (crea cuenta WP + registro aquí)
+     * 3. Completa su perfil (habilidades, documentos, datos pago)
+     * 4. Ya puede aplicar a órdenes de trabajo
+     *
+     * @param object $wpdb Instancia global de WordPress Database
+     * @param string $charset_collate Charset y collation de la BD
+     */
+    private static function create_aplicantes_table($wpdb, $charset_collate) {
+        $table_name = $wpdb->prefix . 'ga_aplicantes';
+
+        $sql = "CREATE TABLE {$table_name} (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * IDENTIFICACIÓN Y ACCESO
+             * ───────────────────────────────────────────────────────────────── */
+            usuario_wp_id BIGINT UNSIGNED UNIQUE COMMENT 'FK wp_users - Login portal aplicantes',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * TIPO DE APLICANTE
+             * - PERSONA_NATURAL: Freelancer individual
+             * - EMPRESA: Consultora, agencia, empresa de servicios
+             * ───────────────────────────────────────────────────────────────── */
+            tipo ENUM('PERSONA_NATURAL', 'EMPRESA') DEFAULT 'PERSONA_NATURAL',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * DATOS PERSONALES / EMPRESARIALES
+             * ───────────────────────────────────────────────────────────────── */
+            nombre_completo VARCHAR(200) NOT NULL COMMENT 'Nombre persona o razón social empresa',
+            nombre_comercial VARCHAR(200) COMMENT 'Nombre comercial (solo empresas)',
+            documento_tipo VARCHAR(20) COMMENT 'CC, NIT, RFC, EIN, PASAPORTE',
+            documento_numero VARCHAR(50) COMMENT 'Número de identificación',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * CONTACTO
+             * ───────────────────────────────────────────────────────────────── */
+            email VARCHAR(200) NOT NULL COMMENT 'Email principal de contacto',
+            telefono VARCHAR(50) COMMENT 'Teléfono con código país',
+            pais VARCHAR(2) COMMENT 'Código ISO del país de residencia',
+            ciudad VARCHAR(100) COMMENT 'Ciudad de residencia',
+            direccion TEXT COMMENT 'Dirección completa',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * PERFIL PROFESIONAL
+             * - habilidades: JSON con array de skills ["PHP", "WordPress", "React"]
+             * - experiencia_anios: Años de experiencia profesional
+             * - portafolio_url: Link a portafolio o LinkedIn
+             * - cv_url: Link al CV/Hoja de vida subido
+             * ───────────────────────────────────────────────────────────────── */
+            habilidades JSON COMMENT 'Array de habilidades/skills',
+            experiencia_anios INT DEFAULT 0 COMMENT 'Años de experiencia',
+            portafolio_url VARCHAR(500) COMMENT 'URL portafolio o LinkedIn',
+            cv_url VARCHAR(500) COMMENT 'URL del CV subido',
+            descripcion_perfil TEXT COMMENT 'Descripción/bio del aplicante',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * DATOS DE PAGO
+             * Cuando el aplicante es contratado, necesitamos saber cómo pagarle
+             * ───────────────────────────────────────────────────────────────── */
+            metodo_pago_preferido ENUM('BINANCE', 'WISE', 'PAYPAL', 'PAYONEER', 'STRIPE', 'TRANSFERENCIA') DEFAULT 'TRANSFERENCIA',
+            datos_pago_binance JSON COMMENT 'Datos Binance Pay',
+            datos_pago_wise JSON COMMENT 'Datos Wise/TransferWise',
+            datos_pago_paypal JSON COMMENT 'Email PayPal',
+            datos_pago_banco JSON COMMENT 'Datos bancarios para transferencia',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * DOCUMENTOS REQUERIDOS (URLs a archivos subidos)
+             * ───────────────────────────────────────────────────────────────── */
+            documento_identidad_url VARCHAR(500) COMMENT 'Scan de documento de identidad',
+            rut_url VARCHAR(500) COMMENT 'RUT/RFC/Documento fiscal',
+            certificado_bancario_url VARCHAR(500) COMMENT 'Certificación bancaria',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ESTADO Y VERIFICACIÓN
+             * ───────────────────────────────────────────────────────────────── */
+            estado ENUM('PENDIENTE_VERIFICACION', 'VERIFICADO', 'RECHAZADO', 'SUSPENDIDO') DEFAULT 'PENDIENTE_VERIFICACION',
+            fecha_verificacion DATETIME COMMENT 'Cuándo fue verificado',
+            verificado_por BIGINT UNSIGNED COMMENT 'Quién verificó',
+            notas_verificacion TEXT COMMENT 'Notas del proceso de verificación',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ESTADÍSTICAS (se actualizan automáticamente)
+             * ───────────────────────────────────────────────────────────────── */
+            total_aplicaciones INT DEFAULT 0 COMMENT 'Total de aplicaciones realizadas',
+            aplicaciones_aceptadas INT DEFAULT 0 COMMENT 'Aplicaciones aceptadas',
+            calificacion_promedio DECIMAL(3,2) DEFAULT 0 COMMENT 'Rating promedio 0-5',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * AUDITORÍA
+             * ───────────────────────────────────────────────────────────────── */
+            activo TINYINT(1) DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ÍNDICES para optimizar búsquedas frecuentes
+             * ───────────────────────────────────────────────────────────────── */
+            INDEX idx_usuario_wp (usuario_wp_id),
+            INDEX idx_tipo (tipo),
+            INDEX idx_estado (estado),
+            INDEX idx_pais (pais),
+            INDEX idx_activo (activo)
+        ) {$charset_collate};";
+
+        dbDelta($sql);
+    }
+
+    /**
+     * Crear tabla wp_ga_ordenes_trabajo
+     *
+     * =========================================================================
+     * PROPÓSITO:
+     * =========================================================================
+     * Representa las "ofertas de trabajo" que la empresa publica en el portal.
+     * Es el concepto central del MARKETPLACE - similar a publicar un proyecto
+     * en Freelancer.com o Upwork.
+     *
+     * =========================================================================
+     * NUMERACIÓN AUTOMÁTICA:
+     * =========================================================================
+     * Formato: OT-[AÑO]-[CONSECUTIVO]
+     * Ejemplo: OT-2024-0001, OT-2024-0002, OT-2025-0001
+     *
+     * =========================================================================
+     * CICLO DE VIDA DE UNA ORDEN:
+     * =========================================================================
+     *
+     *   BORRADOR ──► PUBLICADA ──► ASIGNADA ──► EN_PROGRESO ──► COMPLETADA
+     *       │            │            │
+     *       │            │            └──► CANCELADA
+     *       │            └──► CERRADA (sin asignar)
+     *       └──► CANCELADA
+     *
+     * =========================================================================
+     * RELACIONES:
+     * =========================================================================
+     * - caso_id → wp_ga_casos (opcional, si es para caso específico)
+     * - proyecto_id → wp_ga_proyectos (opcional)
+     * - departamento_id → wp_ga_departamentos (qué área necesita el trabajo)
+     * - puesto_requerido_id → wp_ga_puestos (perfil requerido)
+     *
+     * @param object $wpdb Instancia global de WordPress Database
+     * @param string $charset_collate Charset y collation de la BD
+     */
+    private static function create_ordenes_trabajo_table($wpdb, $charset_collate) {
+        $table_name = $wpdb->prefix . 'ga_ordenes_trabajo';
+
+        $sql = "CREATE TABLE {$table_name} (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * IDENTIFICACIÓN
+             * El código se genera automáticamente: OT-2024-0001
+             * ───────────────────────────────────────────────────────────────── */
+            codigo VARCHAR(20) NOT NULL UNIQUE COMMENT 'Formato: OT-YYYY-NNNN',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * INFORMACIÓN BÁSICA DE LA ORDEN
+             * ───────────────────────────────────────────────────────────────── */
+            titulo VARCHAR(200) NOT NULL COMMENT 'Título descriptivo de la orden',
+            descripcion TEXT COMMENT 'Descripción detallada del trabajo requerido',
+            requisitos TEXT COMMENT 'Requisitos específicos para aplicar',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * CATEGORIZACIÓN
+             * ───────────────────────────────────────────────────────────────── */
+            categoria ENUM('DESARROLLO', 'DISENO', 'MARKETING', 'LEGAL', 'CONTABILIDAD', 'ADMINISTRATIVO', 'SOPORTE', 'CONSULTORIA', 'OTRO') DEFAULT 'OTRO',
+            departamento_id INT COMMENT 'FK departamento que solicita',
+            puesto_requerido_id INT COMMENT 'FK puesto/perfil requerido',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * CONDICIONES ECONÓMICAS
+             * - tipo_pago: Si es por hora o precio fijo
+             * - tarifa_hora: Tarifa ofrecida por hora (si aplica)
+             * - presupuesto_fijo: Monto fijo del proyecto (si aplica)
+             * - tarifa_negociable: Si el aplicante puede proponer otra tarifa
+             * ───────────────────────────────────────────────────────────────── */
+            tipo_pago ENUM('POR_HORA', 'PRECIO_FIJO', 'A_CONVENIR') DEFAULT 'POR_HORA',
+            tarifa_hora_min DECIMAL(10,2) COMMENT 'Tarifa mínima por hora (USD)',
+            tarifa_hora_max DECIMAL(10,2) COMMENT 'Tarifa máxima por hora (USD)',
+            presupuesto_fijo DECIMAL(12,2) COMMENT 'Presupuesto fijo total (USD)',
+            tarifa_negociable TINYINT(1) DEFAULT 1 COMMENT '1=Acepta propuestas de tarifa',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * DURACIÓN Y DEDICACIÓN
+             * ───────────────────────────────────────────────────────────────── */
+            horas_estimadas INT COMMENT 'Horas estimadas totales',
+            duracion_estimada VARCHAR(100) COMMENT 'Ej: "2 semanas", "1 mes"',
+            dedicacion ENUM('TIEMPO_COMPLETO', 'MEDIO_TIEMPO', 'POR_HORAS', 'PROYECTO') DEFAULT 'POR_HORAS',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * FECHAS IMPORTANTES
+             * ───────────────────────────────────────────────────────────────── */
+            fecha_publicacion DATE COMMENT 'Cuándo se publicó en el portal',
+            fecha_cierre_aplicaciones DATE COMMENT 'Hasta cuándo se reciben aplicaciones',
+            fecha_inicio_estimada DATE COMMENT 'Cuándo debería iniciar el trabajo',
+            fecha_fin_estimada DATE COMMENT 'Cuándo debería terminar',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * CONTROL DE APLICACIONES
+             * ───────────────────────────────────────────────────────────────── */
+            max_aplicantes INT DEFAULT 0 COMMENT '0=Sin límite, >0=Límite de aplicaciones',
+            total_aplicantes INT DEFAULT 0 COMMENT 'Contador de aplicaciones (se actualiza)',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ESTADO DE LA ORDEN
+             * ───────────────────────────────────────────────────────────────── */
+            estado ENUM('BORRADOR', 'PUBLICADA', 'CERRADA', 'ASIGNADA', 'EN_PROGRESO', 'COMPLETADA', 'CANCELADA') DEFAULT 'BORRADOR',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * UBICACIÓN Y MODALIDAD
+             * ───────────────────────────────────────────────────────────────── */
+            modalidad ENUM('REMOTO', 'PRESENCIAL', 'HIBRIDO') DEFAULT 'REMOTO',
+            ubicacion VARCHAR(200) COMMENT 'Ubicación si es presencial/híbrido',
+            zona_horaria VARCHAR(50) COMMENT 'Zona horaria requerida, ej: America/Bogota',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * VINCULACIÓN CON PROYECTOS/CASOS (opcional)
+             * Si la orden es para un proyecto específico de un cliente
+             * ───────────────────────────────────────────────────────────────── */
+            caso_id INT COMMENT 'FK wp_ga_casos (si aplica)',
+            proyecto_id INT COMMENT 'FK wp_ga_proyectos (si aplica)',
+            cliente_id INT COMMENT 'FK wp_ga_clientes (si es para cliente)',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * RESPONSABLE INTERNO
+             * ───────────────────────────────────────────────────────────────── */
+            responsable_id BIGINT UNSIGNED COMMENT 'Usuario WP que gestiona la orden',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * CONFIGURACIÓN DE VISIBILIDAD
+             * ───────────────────────────────────────────────────────────────── */
+            es_publica TINYINT(1) DEFAULT 1 COMMENT '1=Visible en portal público',
+            requiere_nda TINYINT(1) DEFAULT 0 COMMENT '1=Requiere firmar NDA para ver detalles',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * HABILIDADES REQUERIDAS (JSON array)
+             * Ejemplo: ["PHP", "WordPress", "MySQL", "React"]
+             * ───────────────────────────────────────────────────────────────── */
+            habilidades_requeridas JSON COMMENT 'Array de skills requeridos',
+            experiencia_minima INT DEFAULT 0 COMMENT 'Años mínimos de experiencia',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ARCHIVOS ADJUNTOS
+             * ───────────────────────────────────────────────────────────────── */
+            archivos_adjuntos JSON COMMENT 'Array de URLs de archivos adjuntos',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * AUDITORÍA
+             * ───────────────────────────────────────────────────────────────── */
+            notas_internas TEXT COMMENT 'Notas solo visibles para admin',
+            activo TINYINT(1) DEFAULT 1,
+            created_by BIGINT UNSIGNED COMMENT 'Quién creó la orden',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ÍNDICES para búsquedas frecuentes
+             * ───────────────────────────────────────────────────────────────── */
+            INDEX idx_codigo (codigo),
+            INDEX idx_estado (estado),
+            INDEX idx_categoria (categoria),
+            INDEX idx_departamento (departamento_id),
+            INDEX idx_fecha_pub (fecha_publicacion),
+            INDEX idx_responsable (responsable_id),
+            INDEX idx_es_publica (es_publica),
+            INDEX idx_activo (activo)
+        ) {$charset_collate};";
+
+        dbDelta($sql);
+    }
+
+    /**
+     * Crear tabla wp_ga_aplicaciones_orden
+     *
+     * =========================================================================
+     * PROPÓSITO:
+     * =========================================================================
+     * Registra cada aplicación de un aplicante a una orden de trabajo.
+     * Es la tabla PUENTE entre aplicantes y órdenes (relación M:N).
+     *
+     * =========================================================================
+     * CICLO DE VIDA DE UNA APLICACIÓN:
+     * =========================================================================
+     *
+     *   PENDIENTE ──► EN_REVISION ──► PRESELECCIONADO ──► ACEPTADA ──► CONTRATADO
+     *       │              │               │                  │
+     *       │              │               │                  └──► RECHAZADA_POST
+     *       │              │               └──► RECHAZADA
+     *       │              └──► RECHAZADA
+     *       └──► RECHAZADA
+     *
+     * =========================================================================
+     * RELACIONES:
+     * =========================================================================
+     * - orden_trabajo_id → wp_ga_ordenes_trabajo
+     * - aplicante_id → wp_ga_aplicantes
+     * - evaluado_por → wp_users (quién revisó la aplicación)
+     *
+     * =========================================================================
+     * CONSTRAINT ÚNICO:
+     * =========================================================================
+     * Un aplicante solo puede aplicar UNA VEZ a cada orden de trabajo.
+     * UNIQUE KEY (orden_trabajo_id, aplicante_id)
+     *
+     * @param object $wpdb Instancia global de WordPress Database
+     * @param string $charset_collate Charset y collation de la BD
+     */
+    private static function create_aplicaciones_orden_table($wpdb, $charset_collate) {
+        $table_name = $wpdb->prefix . 'ga_aplicaciones_orden';
+
+        $sql = "CREATE TABLE {$table_name} (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * RELACIONES PRINCIPALES
+             * ───────────────────────────────────────────────────────────────── */
+            orden_trabajo_id INT NOT NULL COMMENT 'FK wp_ga_ordenes_trabajo',
+            aplicante_id INT NOT NULL COMMENT 'FK wp_ga_aplicantes',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * DATOS DE LA APLICACIÓN
+             * Lo que el aplicante envía al aplicar
+             * ───────────────────────────────────────────────────────────────── */
+            fecha_aplicacion DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'Cuándo aplicó',
+            carta_presentacion TEXT COMMENT 'Mensaje/propuesta del aplicante',
+            tarifa_solicitada DECIMAL(10,2) COMMENT 'Tarifa que propone el aplicante',
+            disponibilidad VARCHAR(200) COMMENT 'Ej: "Inmediata", "En 2 semanas"',
+            horas_disponibles_semana INT COMMENT 'Horas que puede dedicar por semana',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ARCHIVOS ADICIONALES
+             * El aplicante puede adjuntar documentos específicos para esta orden
+             * ───────────────────────────────────────────────────────────────── */
+            archivos_adjuntos JSON COMMENT 'URLs de archivos adjuntos a la aplicación',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ESTADO DE LA APLICACIÓN
+             * ───────────────────────────────────────────────────────────────── */
+            estado ENUM(
+                'PENDIENTE',        /* Recién aplicó, sin revisar */
+                'EN_REVISION',      /* Alguien está revisando */
+                'PRESELECCIONADO',  /* Pasó primera revisión */
+                'ENTREVISTA',       /* Citado a entrevista */
+                'ACEPTADA',         /* Aceptado para el trabajo */
+                'RECHAZADA',        /* No seleccionado */
+                'CONTRATADO',       /* Ya se generó contrato */
+                'RETIRADA'          /* El aplicante retiró su aplicación */
+            ) DEFAULT 'PENDIENTE',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * EVALUACIÓN POR PARTE DE LA EMPRESA
+             * ───────────────────────────────────────────────────────────────── */
+            puntuacion INT COMMENT 'Puntuación interna 1-10',
+            notas_evaluacion TEXT COMMENT 'Notas del evaluador',
+            evaluado_por BIGINT UNSIGNED COMMENT 'Usuario WP que evaluó',
+            fecha_evaluacion DATETIME COMMENT 'Cuándo se evaluó',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * MOTIVO DE RECHAZO (si aplica)
+             * ───────────────────────────────────────────────────────────────── */
+            motivo_rechazo ENUM(
+                'PERFIL_NO_ADECUADO',
+                'TARIFA_ALTA',
+                'DISPONIBILIDAD',
+                'DOCUMENTOS_INCOMPLETOS',
+                'OTRO_CANDIDATO',
+                'ORDEN_CANCELADA',
+                'OTRO'
+            ) COMMENT 'Razón del rechazo',
+            detalle_rechazo TEXT COMMENT 'Explicación adicional del rechazo',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * CONTRATACIÓN (cuando se acepta)
+             * ───────────────────────────────────────────────────────────────── */
+            contrato_generado_id INT COMMENT 'FK wp_ga_contratos_trabajo (si se generó)',
+            fecha_contratacion DATETIME COMMENT 'Cuándo se formalizó la contratación',
+            tarifa_acordada DECIMAL(10,2) COMMENT 'Tarifa final acordada',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * AUDITORÍA
+             * ───────────────────────────────────────────────────────────────── */
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * CONSTRAINT: Un aplicante solo puede aplicar una vez por orden
+             * ───────────────────────────────────────────────────────────────── */
+            UNIQUE KEY uk_orden_aplicante (orden_trabajo_id, aplicante_id),
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ÍNDICES para búsquedas frecuentes
+             * ───────────────────────────────────────────────────────────────── */
+            INDEX idx_orden (orden_trabajo_id),
+            INDEX idx_aplicante (aplicante_id),
+            INDEX idx_estado (estado),
+            INDEX idx_fecha (fecha_aplicacion)
         ) {$charset_collate};";
 
         dbDelta($sql);

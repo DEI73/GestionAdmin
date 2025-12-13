@@ -63,6 +63,16 @@ class GA_Admin {
         add_action('wp_ajax_ga_save_proyecto', array($this, 'ajax_save_proyecto'));
         add_action('wp_ajax_ga_delete_proyecto', array($this, 'ajax_delete_proyecto'));
         add_action('wp_ajax_ga_get_proyectos_by_caso', array($this, 'ajax_get_proyectos_by_caso'));
+
+        // AJAX handlers - Sprint 7-8 (Marketplace: Órdenes de Trabajo, Aplicantes)
+        add_action('wp_ajax_ga_save_orden_trabajo', array($this, 'ajax_save_orden_trabajo'));
+        add_action('wp_ajax_ga_delete_orden_trabajo', array($this, 'ajax_delete_orden_trabajo'));
+        add_action('wp_ajax_ga_change_orden_estado', array($this, 'ajax_change_orden_estado'));
+        add_action('wp_ajax_ga_save_aplicante', array($this, 'ajax_save_aplicante'));
+        add_action('wp_ajax_ga_delete_aplicante', array($this, 'ajax_delete_aplicante'));
+        add_action('wp_ajax_ga_change_aplicante_estado', array($this, 'ajax_change_aplicante_estado'));
+        add_action('wp_ajax_ga_save_aplicacion', array($this, 'ajax_save_aplicacion'));
+        add_action('wp_ajax_ga_change_aplicacion_estado', array($this, 'ajax_change_aplicacion_estado'));
     }
 
     /**
@@ -85,6 +95,11 @@ class GA_Admin {
         require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-clientes.php';
         require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-casos.php';
         require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-proyectos.php';
+
+        // Sprint 7-8: Marketplace y Órdenes de Trabajo
+        require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-ordenes-trabajo.php';
+        require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-aplicantes.php';
+        require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-aplicaciones.php';
     }
 
     /**
@@ -200,6 +215,36 @@ class GA_Admin {
             'manage_options',
             'gestionadmin-proyectos',
             array($this, 'render_proyectos')
+        );
+
+        // Separador visual (Sprint 7-8: Marketplace)
+        add_submenu_page(
+            'gestionadmin',
+            '',
+            '── ' . __('Marketplace', 'gestionadmin-wolk') . ' ──',
+            'manage_options',
+            '#ga-separator-marketplace',
+            '__return_false'
+        );
+
+        // Órdenes de Trabajo
+        add_submenu_page(
+            'gestionadmin',
+            __('Órdenes de Trabajo', 'gestionadmin-wolk'),
+            __('Órdenes de Trabajo', 'gestionadmin-wolk'),
+            'manage_options',
+            'gestionadmin-ordenes',
+            array($this, 'render_ordenes_trabajo')
+        );
+
+        // Aplicantes
+        add_submenu_page(
+            'gestionadmin',
+            __('Aplicantes', 'gestionadmin-wolk'),
+            __('Aplicantes', 'gestionadmin-wolk'),
+            'manage_options',
+            'gestionadmin-aplicantes',
+            array($this, 'render_aplicantes')
         );
     }
 
@@ -955,5 +1000,350 @@ class GA_Admin {
         $proyectos = GA_Proyectos::get_for_dropdown($caso_id);
 
         wp_send_json_success($proyectos);
+    }
+
+    // =========================================================================
+    // RENDER PAGES - SPRINT 7-8 (MARKETPLACE)
+    // =========================================================================
+
+    /**
+     * Renderizar Órdenes de Trabajo
+     *
+     * Página de gestión de órdenes de trabajo del Marketplace.
+     * Permite crear, editar, publicar y gestionar órdenes.
+     *
+     * @since 1.3.0
+     */
+    public function render_ordenes_trabajo() {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('No tienes permisos para acceder a esta página.', 'gestionadmin-wolk'));
+        }
+        include GA_PLUGIN_DIR . 'admin/views/ordenes-trabajo.php';
+    }
+
+    /**
+     * Renderizar Aplicantes
+     *
+     * Página de gestión de aplicantes (freelancers/empresas).
+     * Permite verificar, gestionar y revisar perfiles.
+     *
+     * @since 1.3.0
+     */
+    public function render_aplicantes() {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('No tienes permisos para acceder a esta página.', 'gestionadmin-wolk'));
+        }
+        include GA_PLUGIN_DIR . 'admin/views/aplicantes.php';
+    }
+
+    // =========================================================================
+    // AJAX HANDLERS - ÓRDENES DE TRABAJO (Sprint 7-8)
+    // =========================================================================
+
+    /**
+     * AJAX: Guardar orden de trabajo
+     *
+     * Crea o actualiza una orden de trabajo del Marketplace.
+     * Genera código automático OT-YYYY-NNNN para nuevas órdenes.
+     *
+     * @since 1.3.0
+     */
+    public function ajax_save_orden_trabajo() {
+        check_ajax_referer('ga_admin_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Sin permisos', 'gestionadmin-wolk')));
+        }
+
+        $id = isset($_POST['id']) ? absint($_POST['id']) : 0;
+
+        // Procesar habilidades (viene como JSON string)
+        $habilidades = array();
+        if (!empty($_POST['habilidades_requeridas'])) {
+            $habilidades = json_decode(stripslashes($_POST['habilidades_requeridas']), true);
+            if (!is_array($habilidades)) {
+                $habilidades = array();
+            }
+        }
+
+        $data = array(
+            'id'                      => $id,
+            'titulo'                  => sanitize_text_field($_POST['titulo']),
+            'descripcion'             => wp_kses_post($_POST['descripcion'] ?? ''),
+            'categoria'               => sanitize_text_field($_POST['categoria'] ?? 'OTRO'),
+            'tipo_pago'               => sanitize_text_field($_POST['tipo_pago'] ?? 'A_CONVENIR'),
+            'presupuesto_min'         => floatval($_POST['presupuesto_min'] ?? 0) ?: null,
+            'presupuesto_max'         => floatval($_POST['presupuesto_max'] ?? 0) ?: null,
+            'modalidad'               => sanitize_text_field($_POST['modalidad'] ?? 'REMOTO'),
+            'ubicacion_requerida'     => sanitize_text_field($_POST['ubicacion_requerida'] ?? ''),
+            'nivel_experiencia'       => sanitize_text_field($_POST['nivel_experiencia'] ?? 'CUALQUIERA'),
+            'habilidades_requeridas'  => $habilidades,
+            'requisitos_adicionales'  => wp_kses_post($_POST['requisitos_adicionales'] ?? ''),
+            'fecha_limite_aplicacion' => sanitize_text_field($_POST['fecha_limite_aplicacion'] ?? '') ?: null,
+            'fecha_inicio_estimada'   => sanitize_text_field($_POST['fecha_inicio_estimada'] ?? '') ?: null,
+            'duracion_estimada_dias'  => absint($_POST['duracion_estimada_dias'] ?? 0) ?: null,
+            'estado'                  => sanitize_text_field($_POST['estado'] ?? 'BORRADOR'),
+            'prioridad'               => sanitize_text_field($_POST['prioridad'] ?? 'NORMAL'),
+            'cliente_id'              => absint($_POST['cliente_id'] ?? 0) ?: null,
+            'caso_id'                 => absint($_POST['caso_id'] ?? 0) ?: null,
+            'proyecto_id'             => absint($_POST['proyecto_id'] ?? 0) ?: null,
+        );
+
+        $result = GA_Ordenes_Trabajo::save($data);
+
+        if (!$result['success']) {
+            wp_send_json_error(array('message' => $result['message']));
+        }
+
+        wp_send_json_success(array(
+            'message' => $result['message'],
+            'id'      => $result['id'],
+            'codigo'  => $result['codigo'] ?? '',
+        ));
+    }
+
+    /**
+     * AJAX: Eliminar orden de trabajo
+     *
+     * Solo permite eliminar órdenes en estado BORRADOR o CANCELADA
+     * y que no tengan aplicaciones.
+     *
+     * @since 1.3.0
+     */
+    public function ajax_delete_orden_trabajo() {
+        check_ajax_referer('ga_admin_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Sin permisos', 'gestionadmin-wolk')));
+        }
+
+        $id = absint($_POST['id']);
+        $result = GA_Ordenes_Trabajo::delete($id);
+
+        if (!$result['success']) {
+            wp_send_json_error(array('message' => $result['message']));
+        }
+
+        wp_send_json_success(array('message' => $result['message']));
+    }
+
+    /**
+     * AJAX: Cambiar estado de orden de trabajo
+     *
+     * Valida transiciones permitidas antes de cambiar el estado.
+     *
+     * @since 1.3.0
+     */
+    public function ajax_change_orden_estado() {
+        check_ajax_referer('ga_admin_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Sin permisos', 'gestionadmin-wolk')));
+        }
+
+        $id = absint($_POST['id']);
+        $estado = sanitize_text_field($_POST['estado']);
+
+        $result = GA_Ordenes_Trabajo::cambiar_estado($id, $estado);
+
+        if (!$result['success']) {
+            wp_send_json_error(array('message' => $result['message']));
+        }
+
+        wp_send_json_success(array('message' => $result['message']));
+    }
+
+    // =========================================================================
+    // AJAX HANDLERS - APLICANTES (Sprint 7-8)
+    // =========================================================================
+
+    /**
+     * AJAX: Guardar aplicante
+     *
+     * Crea o actualiza un aplicante (freelancer/empresa).
+     *
+     * @since 1.3.0
+     */
+    public function ajax_save_aplicante() {
+        check_ajax_referer('ga_admin_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Sin permisos', 'gestionadmin-wolk')));
+        }
+
+        $id = isset($_POST['id']) ? absint($_POST['id']) : 0;
+
+        // Procesar habilidades (viene como JSON string)
+        $habilidades = array();
+        if (!empty($_POST['habilidades'])) {
+            $habilidades = json_decode(stripslashes($_POST['habilidades']), true);
+            if (!is_array($habilidades)) {
+                $habilidades = array();
+            }
+        }
+
+        $data = array(
+            'id'                    => $id,
+            'tipo'                  => sanitize_text_field($_POST['tipo'] ?? 'PERSONA_NATURAL'),
+            'nombre_completo'       => sanitize_text_field($_POST['nombre_completo']),
+            'email'                 => sanitize_email($_POST['email']),
+            'telefono'              => sanitize_text_field($_POST['telefono'] ?? ''),
+            'pais'                  => sanitize_text_field($_POST['pais'] ?? ''),
+            'ciudad'                => sanitize_text_field($_POST['ciudad'] ?? ''),
+            'documento_tipo'        => sanitize_text_field($_POST['documento_tipo'] ?? ''),
+            'documento_numero'      => sanitize_text_field($_POST['documento_numero'] ?? ''),
+            'titulo_profesional'    => sanitize_text_field($_POST['titulo_profesional'] ?? ''),
+            'bio'                   => wp_kses_post($_POST['bio'] ?? ''),
+            'habilidades'           => $habilidades,
+            'nivel_experiencia'     => sanitize_text_field($_POST['nivel_experiencia'] ?? 'JUNIOR'),
+            'anos_experiencia'      => absint($_POST['anos_experiencia'] ?? 0),
+            'tarifa_hora_min'       => floatval($_POST['tarifa_hora_min'] ?? 0) ?: null,
+            'tarifa_hora_max'       => floatval($_POST['tarifa_hora_max'] ?? 0) ?: null,
+            'disponibilidad_horas'  => absint($_POST['disponibilidad_horas'] ?? 40),
+            'disponible_inmediato'  => absint($_POST['disponible_inmediato'] ?? 0),
+            'portfolio_url'         => esc_url_raw($_POST['portfolio_url'] ?? ''),
+            'linkedin_url'          => esc_url_raw($_POST['linkedin_url'] ?? ''),
+            'github_url'            => esc_url_raw($_POST['github_url'] ?? ''),
+            'metodo_pago_preferido' => sanitize_text_field($_POST['metodo_pago_preferido'] ?? ''),
+            'estado'                => sanitize_text_field($_POST['estado'] ?? 'PENDIENTE_VERIFICACION'),
+            'notas_admin'           => sanitize_textarea_field($_POST['notas_admin'] ?? ''),
+        );
+
+        $result = GA_Aplicantes::save($data);
+
+        if (!$result['success']) {
+            wp_send_json_error(array('message' => $result['message']));
+        }
+
+        wp_send_json_success(array(
+            'message' => $result['message'],
+            'id'      => $result['id'],
+        ));
+    }
+
+    /**
+     * AJAX: Eliminar aplicante
+     *
+     * Solo permite eliminar si no tiene aplicaciones activas.
+     *
+     * @since 1.3.0
+     */
+    public function ajax_delete_aplicante() {
+        check_ajax_referer('ga_admin_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Sin permisos', 'gestionadmin-wolk')));
+        }
+
+        $id = absint($_POST['id']);
+        $result = GA_Aplicantes::delete($id);
+
+        if (!$result['success']) {
+            wp_send_json_error(array('message' => $result['message']));
+        }
+
+        wp_send_json_success(array('message' => $result['message']));
+    }
+
+    /**
+     * AJAX: Cambiar estado de aplicante
+     *
+     * Permite verificar, rechazar o suspender aplicantes.
+     *
+     * @since 1.3.0
+     */
+    public function ajax_change_aplicante_estado() {
+        check_ajax_referer('ga_admin_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Sin permisos', 'gestionadmin-wolk')));
+        }
+
+        $id = absint($_POST['id']);
+        $estado = sanitize_text_field($_POST['estado']);
+        $notas = sanitize_textarea_field($_POST['notas'] ?? '');
+
+        $result = GA_Aplicantes::cambiar_estado($id, $estado, $notas);
+
+        if (!$result['success']) {
+            wp_send_json_error(array('message' => $result['message']));
+        }
+
+        wp_send_json_success(array('message' => $result['message']));
+    }
+
+    // =========================================================================
+    // AJAX HANDLERS - APLICACIONES (Sprint 7-8)
+    // =========================================================================
+
+    /**
+     * AJAX: Guardar aplicación (postulación)
+     *
+     * Crea una nueva aplicación de un aplicante a una orden.
+     *
+     * @since 1.3.0
+     */
+    public function ajax_save_aplicacion() {
+        check_ajax_referer('ga_admin_nonce', 'nonce');
+
+        // Las aplicaciones pueden ser creadas por aplicantes verificados
+        $data = array(
+            'orden_trabajo_id'   => absint($_POST['orden_trabajo_id']),
+            'aplicante_id'       => absint($_POST['aplicante_id']),
+            'carta_presentacion' => wp_kses_post($_POST['carta_presentacion'] ?? ''),
+            'propuesta_monto'    => floatval($_POST['propuesta_monto'] ?? 0) ?: null,
+            'propuesta_tiempo'   => sanitize_text_field($_POST['propuesta_tiempo'] ?? ''),
+            'disponibilidad'     => sanitize_text_field($_POST['disponibilidad'] ?? ''),
+        );
+
+        $result = GA_Aplicaciones::aplicar($data);
+
+        if (!$result['success']) {
+            wp_send_json_error(array('message' => $result['message']));
+        }
+
+        wp_send_json_success(array(
+            'message' => $result['message'],
+            'id'      => $result['id'],
+        ));
+    }
+
+    /**
+     * AJAX: Cambiar estado de aplicación
+     *
+     * Permite avanzar en el flujo de evaluación de aplicaciones.
+     *
+     * @since 1.3.0
+     */
+    public function ajax_change_aplicacion_estado() {
+        check_ajax_referer('ga_admin_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Sin permisos', 'gestionadmin-wolk')));
+        }
+
+        $id = absint($_POST['id']);
+        $estado = sanitize_text_field($_POST['estado']);
+        $notas = sanitize_textarea_field($_POST['notas'] ?? '');
+
+        $result = GA_Aplicaciones::cambiar_estado($id, $estado, $notas);
+
+        if (!$result['success']) {
+            wp_send_json_error(array('message' => $result['message']));
+        }
+
+        // Si se contrata, rechazar las otras aplicaciones
+        if ($estado === 'CONTRATADO') {
+            $aplicacion = GA_Aplicaciones::get($id);
+            if ($aplicacion) {
+                GA_Aplicaciones::rechazar_otras(
+                    $aplicacion->orden_trabajo_id,
+                    $id,
+                    __('Orden asignada a otro aplicante.', 'gestionadmin-wolk')
+                );
+            }
+        }
+
+        wp_send_json_success(array('message' => $result['message']));
     }
 }
