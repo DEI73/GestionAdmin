@@ -1,4 +1,4 @@
-# GestionAdmin by Wolk
+# GestionAdmin by Wolksoftcr
 
 Sistema integral de gestión empresarial estilo "Uber del trabajo profesional" para WordPress.
 
@@ -156,8 +156,10 @@ GPL-2.0+
 
 ## Autor
 
-**Wolk**
-https://wolk.com.co
+**Wolksoftcr**
+https://wolksoftcr.com
+
+Diseñado y desarrollado por Wolksoftcr.com
 
 ---
 

@@ -31,6 +31,10 @@ class GA_Activator {
     public static function activate() {
         global $wpdb;
 
+        // Iniciar output buffering para capturar cualquier output inesperado
+        // (dbDelta puede generar output en algunos casos)
+        ob_start();
+
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 
         $charset_collate = $wpdb->get_charset_collate();
@@ -75,6 +79,9 @@ class GA_Activator {
 
         // Flush rewrite rules
         flush_rewrite_rules();
+
+        // Finalizar output buffering y descartar cualquier output capturado
+        ob_end_clean();
     }
 
     /**
@@ -797,7 +804,7 @@ class GA_Activator {
 
             /* ─────────────────────────────────────────────────────────────────
              * PERFIL PROFESIONAL
-             * - habilidades: JSON con array de skills ["PHP", "WordPress", "React"]
+             * - habilidades: JSON con array de skills (ej: PHP, WordPress, React)
              * - experiencia_anios: Años de experiencia profesional
              * - portafolio_url: Link a portafolio o LinkedIn
              * - cv_url: Link al CV/Hoja de vida subido
@@ -940,7 +947,7 @@ class GA_Activator {
              * DURACIÓN Y DEDICACIÓN
              * ───────────────────────────────────────────────────────────────── */
             horas_estimadas INT COMMENT 'Horas estimadas totales',
-            duracion_estimada VARCHAR(100) COMMENT 'Ej: "2 semanas", "1 mes"',
+            duracion_estimada VARCHAR(100) COMMENT 'Ej: 2 semanas, 1 mes',
             dedicacion ENUM('TIEMPO_COMPLETO', 'MEDIO_TIEMPO', 'POR_HORAS', 'PROYECTO') DEFAULT 'POR_HORAS',
 
             /* ─────────────────────────────────────────────────────────────────
@@ -990,7 +997,7 @@ class GA_Activator {
 
             /* ─────────────────────────────────────────────────────────────────
              * HABILIDADES REQUERIDAS (JSON array)
-             * Ejemplo: ["PHP", "WordPress", "MySQL", "React"]
+             * Ejemplo: (PHP, WordPress, MySQL, React)
              * ───────────────────────────────────────────────────────────────── */
             habilidades_requeridas JSON COMMENT 'Array de skills requeridos',
             experiencia_minima INT DEFAULT 0 COMMENT 'Años mínimos de experiencia',
@@ -1080,7 +1087,7 @@ class GA_Activator {
             fecha_aplicacion DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'Cuándo aplicó',
             carta_presentacion TEXT COMMENT 'Mensaje/propuesta del aplicante',
             tarifa_solicitada DECIMAL(10,2) COMMENT 'Tarifa que propone el aplicante',
-            disponibilidad VARCHAR(200) COMMENT 'Ej: "Inmediata", "En 2 semanas"',
+            disponibilidad VARCHAR(200) COMMENT 'Ej: Inmediata, En 2 semanas',
             horas_disponibles_semana INT COMMENT 'Horas que puede dedicar por semana',
 
             /* ─────────────────────────────────────────────────────────────────
@@ -1209,8 +1216,6 @@ class GA_Activator {
                 array('%s', '%s', '%s', '%s', '%s', '%f', '%f', '%s', '%d', '%s', '%d')
             );
 
-            // Log para debug (opcional)
-            error_log('GestionAdmin: Costa Rica (CR) agregado a wp_ga_paises_config');
         }
     }
 }

@@ -64,6 +64,15 @@ class GA_Loader {
         if (is_admin()) {
             require_once GA_PLUGIN_DIR . 'admin/class-ga-admin.php';
             GA_Admin::get_instance();
+        } else {
+            // Frontend: Cargar módulos necesarios para templates públicos
+            require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-ordenes-trabajo.php';
+            require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-aplicantes.php';
+            require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-aplicaciones.php';
+
+            // Cargar clase pública (rewrite rules, templates, AJAX público)
+            require_once GA_PLUGIN_DIR . 'public/class-ga-public.php';
+            GA_Public::get_instance();
         }
 
         // AJAX handler para obtener escalas (disponible en admin)

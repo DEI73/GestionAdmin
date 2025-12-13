@@ -18,7 +18,7 @@
  * @package    GestionAdmin_Wolk
  * @subpackage Modules
  * @since      1.3.0
- * @author     Wolk
+ * @author     Wolksoftcr.com
  */
 
 if (!defined('ABSPATH')) {
@@ -203,7 +203,7 @@ class GA_Ordenes_Trabajo {
         $table_clientes = $wpdb->prefix . 'ga_clientes';
 
         // Query base con JOIN a clientes para obtener nombre
-        $sql = "SELECT o.*, c.nombre_fiscal as cliente_nombre
+        $sql = "SELECT o.*, c.nombre_comercial as cliente_nombre
                 FROM {$table_ordenes} o
                 LEFT JOIN {$table_clientes} c ON o.cliente_id = c.id
                 WHERE 1=1";
@@ -330,7 +330,7 @@ class GA_Ordenes_Trabajo {
 
         $sql = $wpdb->prepare(
             "SELECT o.*,
-                    cl.nombre_fiscal as cliente_nombre,
+                    cl.nombre_comercial as cliente_nombre,
                     cl.email as cliente_email,
                     ca.codigo as caso_codigo,
                     ca.titulo as caso_titulo,

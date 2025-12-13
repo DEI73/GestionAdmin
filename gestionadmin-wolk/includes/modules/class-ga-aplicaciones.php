@@ -17,7 +17,7 @@
  * @package    GestionAdmin_Wolk
  * @subpackage Modules
  * @since      1.3.0
- * @author     Wolk
+ * @author     Wolksoftcr.com
  */
 
 if (!defined('ABSPATH')) {

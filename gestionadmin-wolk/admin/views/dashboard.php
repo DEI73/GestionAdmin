@@ -21,8 +21,9 @@ $tareas_pendientes = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}ga_tare
 $tareas_progreso = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}ga_tareas WHERE estado = 'EN_PROGRESO'");
 ?>
 <div class="wrap ga-admin">
-    <h1><?php esc_html_e('GestionAdmin by Wolk', 'gestionadmin-wolk'); ?></h1>
+    <h1><?php esc_html_e('GestionAdmin by Wolksoftcr', 'gestionadmin-wolk'); ?></h1>
     <p><?php esc_html_e('Sistema integral de gestión empresarial', 'gestionadmin-wolk'); ?></p>
+    <p class="description"><?php esc_html_e('Diseñado y desarrollado por Wolksoftcr.com', 'gestionadmin-wolk'); ?></p>
 
     <div class="ga-row" style="margin-top: 20px;">
         <!-- Estadísticas -->

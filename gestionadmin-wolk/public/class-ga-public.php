@@ -20,7 +20,7 @@
  * @package    GestionAdmin_Wolk
  * @subpackage Public
  * @since      1.3.0
- * @author     Wolk
+ * @author     Wolksoftcr.com
  */
 
 if (!defined('ABSPATH')) {
@@ -92,9 +92,6 @@ class GA_Public {
         add_action('wp_ajax_nopriv_ga_public_aplicar', array($this, 'ajax_aplicar'));
         add_action('wp_ajax_ga_public_registro_aplicante', array($this, 'ajax_registro_aplicante'));
         add_action('wp_ajax_nopriv_ga_public_registro_aplicante', array($this, 'ajax_registro_aplicante'));
-
-        // Flush rewrite en activación
-        register_activation_hook(GA_PLUGIN_FILE, array($this, 'flush_rewrite_rules'));
     }
 
     // =========================================================================
@@ -585,5 +582,5 @@ class GA_Public {
     }
 }
 
-// Inicializar el frontend público
-GA_Public::get_instance();
+// NOTA: No auto-inicializar aquí. Se carga desde class-ga-loader.php
+// para evitar conflictos durante la activación del plugin.

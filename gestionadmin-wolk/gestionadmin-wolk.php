@@ -1,11 +1,11 @@
 <?php
 /**
- * Plugin Name: GestionAdmin by Wolk
- * Plugin URI: https://wolk.com.co/gestionadmin
- * Description: Sistema integral de gestión empresarial estilo "Uber del trabajo profesional". Gestiona empleados, freelancers, tareas, facturación multi-país y pagos.
+ * Plugin Name: GestionAdmin by Wolksoftcr
+ * Plugin URI: https://wolksoftcr.com/gestionadmin
+ * Description: Sistema integral de gestión empresarial estilo "Uber del trabajo profesional". Gestiona empleados, freelancers, tareas, facturación multi-país y pagos. Diseñado y desarrollado por Wolksoftcr.com
  * Version: 1.0.0
- * Author: Wolk
- * Author URI: https://wolk.com.co
+ * Author: Wolksoftcr
+ * Author URI: https://wolksoftcr.com
  * License: GPL-2.0+
  * License URI: http://www.gnu.org/licenses/gpl-2.0.txt
  * Text Domain: gestionadmin-wolk
@@ -20,6 +20,7 @@ if (!defined('ABSPATH')) {
 
 // Definir constantes del plugin
 define('GA_VERSION', '1.0.0');
+define('GA_PLUGIN_FILE', __FILE__);
 define('GA_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('GA_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('GA_PLUGIN_BASENAME', plugin_basename(__FILE__));

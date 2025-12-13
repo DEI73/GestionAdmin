@@ -268,7 +268,7 @@ $prioridades = GA_Ordenes_Trabajo::get_prioridades();
                                     <option value=""><?php esc_html_e('Sin cliente específico', 'gestionadmin-wolk'); ?></option>
                                     <?php foreach ($clientes as $cliente) : ?>
                                         <option value="<?php echo esc_attr($cliente->id); ?>">
-                                            <?php echo esc_html($cliente->nombre_fiscal); ?>
+                                            <?php echo esc_html($cliente->nombre_comercial); ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
