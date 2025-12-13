@@ -1216,6 +1216,51 @@ class GA_Activator {
 
         // Migración 1.5.1: Estandarizar tiempos en MINUTOS
         self::migration_tiempos_a_minutos($wpdb);
+
+        // Migración 1.5.2: Agregar campos de presupuesto a proyectos
+        self::migration_add_presupuesto_proyectos($wpdb);
+    }
+
+    /**
+     * Migración: Agregar campos de presupuesto detallado a proyectos
+     *
+     * Agrega tarifa_hora, descuento_porcentaje, descuento_monto, subtotal, total
+     *
+     * @param object $wpdb Instancia global de WordPress Database
+     */
+    private static function migration_add_presupuesto_proyectos($wpdb) {
+        $table = $wpdb->prefix . 'ga_proyectos';
+
+        // Verificar si la columna tarifa_hora ya existe
+        $columna_tarifa = $wpdb->get_results("SHOW COLUMNS FROM {$table} LIKE 'tarifa_hora'");
+
+        if (empty($columna_tarifa)) {
+            // Agregar columna tarifa_hora
+            $wpdb->query("ALTER TABLE {$table} ADD COLUMN tarifa_hora DECIMAL(10,2) DEFAULT 0 COMMENT 'Tarifa por hora en USD'");
+
+            // Agregar columna descuento_porcentaje
+            $wpdb->query("ALTER TABLE {$table} ADD COLUMN descuento_porcentaje DECIMAL(5,2) DEFAULT 0 COMMENT 'Descuento en porcentaje (0-100)'");
+
+            // Agregar columna descuento_monto
+            $wpdb->query("ALTER TABLE {$table} ADD COLUMN descuento_monto DECIMAL(10,2) DEFAULT 0 COMMENT 'Descuento en monto fijo USD'");
+
+            // Agregar columna subtotal
+            $wpdb->query("ALTER TABLE {$table} ADD COLUMN subtotal DECIMAL(12,2) DEFAULT 0 COMMENT 'Subtotal antes de descuento'");
+
+            // Agregar columna total
+            $wpdb->query("ALTER TABLE {$table} ADD COLUMN total DECIMAL(12,2) DEFAULT 0 COMMENT 'Total a cobrar al cliente'");
+
+            // Migrar datos existentes: si tienen presupuesto_dinero, usarlo como total
+            $wpdb->query("UPDATE {$table} SET total = presupuesto_dinero WHERE presupuesto_dinero > 0 AND total = 0");
+            $wpdb->query("UPDATE {$table} SET subtotal = presupuesto_dinero WHERE presupuesto_dinero > 0 AND subtotal = 0");
+
+            // Calcular tarifa_hora si hay horas y dinero
+            $wpdb->query(
+                "UPDATE {$table}
+                 SET tarifa_hora = ROUND(presupuesto_dinero / presupuesto_horas, 2)
+                 WHERE presupuesto_horas > 0 AND presupuesto_dinero > 0 AND tarifa_hora = 0"
+            );
+        }
     }
 
     /**

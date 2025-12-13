@@ -301,27 +301,68 @@ $usuarios = GA_Usuarios::get_for_dropdown();      // Usuarios para responsable
                     </h4>
 
                     <div class="ga-row">
-                        <!-- Horas -->
+                        <!-- Horas Presupuestadas -->
                         <div class="ga-col ga-col-6">
                             <div class="ga-form-group">
                                 <label class="ga-form-label" for="proyecto-horas">
-                                    <?php esc_html_e('Horas Presupuestadas', 'gestionadmin-wolk'); ?>
+                                    <?php esc_html_e('Horas Presupuestadas', 'gestionadmin-wolk'); ?> *
                                 </label>
                                 <input type="number" id="proyecto-horas" name="presupuesto_horas"
-                                       class="ga-form-input" min="0">
+                                       class="ga-form-input ga-calc-trigger" min="0" step="0.5" value="0">
                             </div>
                         </div>
 
-                        <!-- Dinero -->
+                        <!-- Tarifa por Hora -->
                         <div class="ga-col ga-col-6">
                             <div class="ga-form-group">
-                                <label class="ga-form-label" for="proyecto-dinero">
-                                    <?php esc_html_e('Monto USD', 'gestionadmin-wolk'); ?>
+                                <label class="ga-form-label" for="proyecto-tarifa">
+                                    <?php esc_html_e('Tarifa por Hora (USD)', 'gestionadmin-wolk'); ?> *
                                 </label>
-                                <input type="number" id="proyecto-dinero" name="presupuesto_dinero"
-                                       class="ga-form-input" step="0.01" min="0">
+                                <input type="number" id="proyecto-tarifa" name="tarifa_hora"
+                                       class="ga-form-input ga-calc-trigger" step="0.01" min="0" value="0">
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Cálculo de presupuesto -->
+                    <div class="ga-presupuesto-calc" style="background: #f9f9f9; border: 1px solid var(--ga-border); border-radius: 4px; padding: 15px; margin-bottom: 15px;">
+                        <!-- Subtotal -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <div>
+                                <strong><?php esc_html_e('Subtotal:', 'gestionadmin-wolk'); ?></strong>
+                                <small id="display-calculo" style="color: #666; margin-left: 5px;">(0 hrs × $0.00)</small>
+                            </div>
+                            <span id="display-subtotal" style="font-size: 16px; font-weight: bold;">$0.00</span>
+                        </div>
+
+                        <!-- Descuento -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed var(--ga-border);">
+                            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                <strong><?php esc_html_e('Descuento:', 'gestionadmin-wolk'); ?></strong>
+                                <input type="number" id="proyecto-descuento-pct" name="descuento_porcentaje"
+                                       class="ga-form-input ga-calc-trigger" style="width: 70px; text-align: right;"
+                                       min="0" max="100" step="0.01" value="0">
+                                <span>%</span>
+                                <span style="color: #999;"><?php esc_html_e('ó', 'gestionadmin-wolk'); ?></span>
+                                <span>$</span>
+                                <input type="number" id="proyecto-descuento-monto" name="descuento_monto"
+                                       class="ga-form-input ga-calc-trigger" style="width: 100px; text-align: right;"
+                                       min="0" step="0.01" value="0">
+                            </div>
+                            <span id="display-descuento" style="color: var(--ga-danger);">-$0.00</span>
+                        </div>
+
+                        <!-- Total -->
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <strong style="font-size: 16px;"><?php esc_html_e('TOTAL A COBRAR:', 'gestionadmin-wolk'); ?></strong>
+                            <span id="display-total" style="font-size: 20px; font-weight: bold; color: var(--ga-success);">$0.00</span>
+                        </div>
+
+                        <!-- Campos hidden para enviar al servidor -->
+                        <input type="hidden" id="proyecto-subtotal" name="subtotal" value="0">
+                        <input type="hidden" id="proyecto-total" name="total" value="0">
+                        <!-- Campo legado para compatibilidad -->
+                        <input type="hidden" id="proyecto-dinero" name="presupuesto_dinero" value="0">
                     </div>
 
                     <!-- Visibilidad en portal -->
@@ -394,6 +435,11 @@ jQuery(document).ready(function($) {
             'fecha_inicio'         => $p->fecha_inicio,
             'fecha_fin_estimada'   => $p->fecha_fin_estimada,
             'presupuesto_horas'    => $p->presupuesto_horas,
+            'tarifa_hora'          => $p->tarifa_hora ?? 0,
+            'descuento_porcentaje' => $p->descuento_porcentaje ?? 0,
+            'descuento_monto'      => $p->descuento_monto ?? 0,
+            'subtotal'             => $p->subtotal ?? 0,
+            'total'                => $p->total ?? 0,
             'presupuesto_dinero'   => $p->presupuesto_dinero,
             'mostrar_ranking'      => $p->mostrar_ranking,
             'mostrar_tareas_equipo' => $p->mostrar_tareas_equipo,
@@ -419,6 +465,49 @@ jQuery(document).ready(function($) {
         $('#proyecto-id').val('');
         $('#proyecto-mostrar-tareas').prop('checked', true);
         $('#ga-form-title-proyecto').text('<?php echo esc_js(__('Nuevo Proyecto', 'gestionadmin-wolk')); ?>');
+
+        // Resetear campos de presupuesto
+        $('#proyecto-horas').val(0);
+        $('#proyecto-tarifa').val(0);
+        $('#proyecto-descuento-pct').val(0);
+        $('#proyecto-descuento-monto').val(0);
+        calcularPresupuesto();
+    }
+
+    /**
+     * Calcular presupuesto en tiempo real
+     * Fórmula: Horas × Tarifa = Subtotal - Descuento = Total
+     */
+    function calcularPresupuesto() {
+        var horas = parseFloat($('#proyecto-horas').val()) || 0;
+        var tarifa = parseFloat($('#proyecto-tarifa').val()) || 0;
+        var descuentoPct = parseFloat($('#proyecto-descuento-pct').val()) || 0;
+        var descuentoMonto = parseFloat($('#proyecto-descuento-monto').val()) || 0;
+
+        // Calcular subtotal
+        var subtotal = horas * tarifa;
+
+        // Calcular descuento (prioridad: porcentaje si ambos tienen valor)
+        var descuento = 0;
+        if (descuentoPct > 0) {
+            descuento = subtotal * (descuentoPct / 100);
+        } else if (descuentoMonto > 0) {
+            descuento = descuentoMonto;
+        }
+
+        // Calcular total
+        var total = Math.max(0, subtotal - descuento);
+
+        // Actualizar displays
+        $('#display-calculo').text('(' + horas + ' hrs × $' + tarifa.toFixed(2) + ')');
+        $('#display-subtotal').text('$' + subtotal.toFixed(2));
+        $('#display-descuento').text('-$' + descuento.toFixed(2));
+        $('#display-total').text('$' + total.toFixed(2));
+
+        // Actualizar campos hidden
+        $('#proyecto-subtotal').val(subtotal.toFixed(2));
+        $('#proyecto-total').val(total.toFixed(2));
+        $('#proyecto-dinero').val(total.toFixed(2)); // Campo legado
     }
 
     /**
@@ -439,7 +528,10 @@ jQuery(document).ready(function($) {
             $('#proyecto-fecha-inicio').val(p.fecha_inicio);
             $('#proyecto-fecha-fin').val(p.fecha_fin_estimada);
             $('#proyecto-horas').val(p.presupuesto_horas);
-            $('#proyecto-dinero').val(p.presupuesto_dinero);
+            $('#proyecto-tarifa').val(p.tarifa_hora || 0);
+            $('#proyecto-descuento-pct').val(p.descuento_porcentaje || 0);
+            $('#proyecto-descuento-monto').val(p.descuento_monto || 0);
+            calcularPresupuesto(); // Recalcular para actualizar displays
             $('#proyecto-mostrar-tareas').prop('checked', p.mostrar_tareas_equipo == 1);
             $('#proyecto-mostrar-horas').prop('checked', p.mostrar_horas_equipo == 1);
             $('#proyecto-mostrar-ranking').prop('checked', p.mostrar_ranking == 1);
@@ -505,6 +597,31 @@ jQuery(document).ready(function($) {
 
     // Filtros de tabla
     $('#filtro-cliente, #filtro-estado').on('change', applyFilters);
+
+    // ============================================================
+    // CÁLCULO DE PRESUPUESTO EN TIEMPO REAL
+    // ============================================================
+
+    // Evento para campos que disparan el cálculo
+    $('.ga-calc-trigger').on('input change', function() {
+        calcularPresupuesto();
+    });
+
+    // Descuento mutuamente excluyente: si escribes porcentaje, limpia monto y viceversa
+    $('#proyecto-descuento-pct').on('input', function() {
+        if (parseFloat($(this).val()) > 0) {
+            $('#proyecto-descuento-monto').val(0);
+        }
+    });
+
+    $('#proyecto-descuento-monto').on('input', function() {
+        if (parseFloat($(this).val()) > 0) {
+            $('#proyecto-descuento-pct').val(0);
+        }
+    });
+
+    // Calcular presupuesto inicial
+    calcularPresupuesto();
 
     // Filtro de cliente en formulario para casos
     $('#proyecto-cliente-filtro').on('change', function() {
@@ -591,6 +708,11 @@ jQuery(document).ready(function($) {
             fecha_inicio: $('#proyecto-fecha-inicio').val(),
             fecha_fin_estimada: $('#proyecto-fecha-fin').val(),
             presupuesto_horas: $('#proyecto-horas').val(),
+            tarifa_hora: $('#proyecto-tarifa').val(),
+            descuento_porcentaje: $('#proyecto-descuento-pct').val(),
+            descuento_monto: $('#proyecto-descuento-monto').val(),
+            subtotal: $('#proyecto-subtotal').val(),
+            total: $('#proyecto-total').val(),
             presupuesto_dinero: $('#proyecto-dinero').val(),
             mostrar_tareas_equipo: $('#proyecto-mostrar-tareas').is(':checked') ? 1 : 0,
             mostrar_horas_equipo: $('#proyecto-mostrar-horas').is(':checked') ? 1 : 0,
