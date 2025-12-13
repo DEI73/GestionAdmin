@@ -250,7 +250,17 @@ $paises = $wpdb->get_results("SELECT codigo_iso, nombre FROM {$wpdb->prefix}ga_p
                                         </div>
                                         <div class="ga-form-group ga-col-4">
                                             <label for="logo_url"><?php esc_html_e('URL Logo:', 'gestionadmin-wolk'); ?></label>
-                                            <input type="url" name="logo_url" id="logo_url" value="<?php echo esc_url($empresa->logo_url ?? ''); ?>">
+                                            <div class="ga-url-upload-wrap" style="display: flex; gap: 8px; align-items: flex-start;">
+                                                <input type="url" name="logo_url" id="logo_url" value="<?php echo esc_url($empresa->logo_url ?? ''); ?>" style="flex: 1;" placeholder="https://...">
+                                                <button type="button" class="button" id="btn-subir-logo" title="<?php esc_attr_e('Subir imagen', 'gestionadmin-wolk'); ?>">
+                                                    <span class="dashicons dashicons-upload" style="margin-top: 3px;"></span>
+                                                </button>
+                                            </div>
+                                            <div id="logo-preview" style="margin-top: 8px;">
+                                                <?php if (!empty($empresa->logo_url)): ?>
+                                                    <img src="<?php echo esc_url($empresa->logo_url); ?>" style="max-width: 150px; max-height: 80px; border: 1px solid #ddd; padding: 4px; border-radius: 4px; background: #fff;">
+                                                <?php endif; ?>
+                                            </div>
                                         </div>
                                         <div class="ga-form-group ga-col-4">
                                             <label for="color_primario"><?php esc_html_e('Color Primario:', 'gestionadmin-wolk'); ?></label>
@@ -509,3 +519,63 @@ $paises = $wpdb->get_results("SELECT codigo_iso, nombre FROM {$wpdb->prefix}ga_p
 
 .required { color: #dc3545; }
 </style>
+
+<script>
+jQuery(document).ready(function($) {
+    // =========================================================================
+    // MEDIA UPLOADER PARA LOGO
+    // =========================================================================
+    var logoUploader;
+
+    $('#btn-subir-logo').on('click', function(e) {
+        e.preventDefault();
+
+        // Si ya existe el uploader, abrirlo
+        if (logoUploader) {
+            logoUploader.open();
+            return;
+        }
+
+        // Crear nuevo media uploader
+        logoUploader = wp.media({
+            title: '<?php echo esc_js(__('Seleccionar Logo de Empresa', 'gestionadmin-wolk')); ?>',
+            button: {
+                text: '<?php echo esc_js(__('Usar este logo', 'gestionadmin-wolk')); ?>'
+            },
+            library: {
+                type: 'image'
+            },
+            multiple: false
+        });
+
+        // Cuando se seleccione un archivo
+        logoUploader.on('select', function() {
+            var attachment = logoUploader.state().get('selection').first().toJSON();
+            $('#logo_url').val(attachment.url);
+            updateLogoPreview(attachment.url);
+        });
+
+        logoUploader.open();
+    });
+
+    // Preview al cambiar URL manualmente
+    $('#logo_url').on('change blur', function() {
+        updateLogoPreview($(this).val());
+    });
+
+    /**
+     * Actualizar preview del logo
+     */
+    function updateLogoPreview(url) {
+        var $preview = $('#logo-preview');
+        if (url && url.match(/\.(jpg|jpeg|png|gif|svg|webp)$/i)) {
+            $preview.html('<img src="' + url + '" style="max-width: 150px; max-height: 80px; border: 1px solid #ddd; padding: 4px; border-radius: 4px; background: #fff;" onerror="this.style.display=\'none\'">');
+        } else if (url) {
+            // URL sin extensión reconocida, intentar mostrar igual
+            $preview.html('<img src="' + url + '" style="max-width: 150px; max-height: 80px; border: 1px solid #ddd; padding: 4px; border-radius: 4px; background: #fff;" onerror="this.style.display=\'none\'">');
+        } else {
+            $preview.html('');
+        }
+    }
+});
+</script>

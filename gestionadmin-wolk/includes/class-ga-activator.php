@@ -1229,6 +1229,9 @@ class GA_Activator {
 
         // Migración 1.6.0: Agregar columna metodo_pago_id a clientes
         self::migration_add_metodo_pago_clientes($wpdb);
+
+        // Migración 1.6.1: Agregar columna url_logo a clientes
+        self::migration_add_url_logo_clientes($wpdb);
     }
 
     /**
@@ -1315,6 +1318,29 @@ class GA_Activator {
                 "ALTER TABLE {$table}
                  ADD COLUMN metodo_pago_id BIGINT UNSIGNED NULL COMMENT 'FK wp_ga_metodos_pago - Método de pago preferido'
                  AFTER pais"
+            );
+        }
+    }
+
+    /**
+     * Migración: Agregar columna url_logo a clientes
+     *
+     * Permite almacenar el logo del cliente para mostrar en el portal.
+     *
+     * @since 1.6.1
+     * @param object $wpdb Instancia global de WordPress Database
+     */
+    private static function migration_add_url_logo_clientes($wpdb) {
+        $table = $wpdb->prefix . 'ga_clientes';
+
+        // Verificar si la columna ya existe
+        $column_exists = $wpdb->get_results("SHOW COLUMNS FROM {$table} LIKE 'url_logo'");
+
+        if (empty($column_exists)) {
+            $wpdb->query(
+                "ALTER TABLE {$table}
+                 ADD COLUMN url_logo VARCHAR(500) NULL COMMENT 'URL del logo del cliente'
+                 AFTER sitio_web"
             );
         }
     }

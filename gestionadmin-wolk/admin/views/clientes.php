@@ -277,6 +277,35 @@ $metodos_pago = GA_Clientes::get_metodos_pago(); // Métodos de pago disponibles
                                   rows="2"></textarea>
                     </div>
 
+                    <!-- ====== SECCIÓN: Logo del Cliente ====== -->
+                    <h4 style="margin: 20px 0 10px; border-bottom: 1px solid var(--ga-border); padding-bottom: 5px;">
+                        <?php esc_html_e('Logo del Cliente', 'gestionadmin-wolk'); ?>
+                    </h4>
+
+                    <div class="ga-form-group">
+                        <label class="ga-form-label" for="cliente-url-logo">
+                            <?php esc_html_e('URL del Logo', 'gestionadmin-wolk'); ?>
+                        </label>
+                        <div style="display: flex; gap: 10px; align-items: flex-start;">
+                            <input type="url" id="cliente-url-logo" name="url_logo" class="ga-form-input"
+                                   maxlength="500" style="flex: 1;"
+                                   placeholder="<?php esc_attr_e('https://ejemplo.com/logo.png', 'gestionadmin-wolk'); ?>">
+                            <button type="button" class="button" id="btn-subir-logo-cliente">
+                                <?php esc_html_e('Subir a Medios', 'gestionadmin-wolk'); ?>
+                            </button>
+                        </div>
+                        <!-- Preview del logo -->
+                        <div id="cliente-logo-preview" style="margin-top: 10px; display: none;">
+                            <img src="" alt="Preview" style="max-width: 150px; max-height: 100px; border: 1px solid var(--ga-border); border-radius: 4px; padding: 5px; background: #fff;">
+                            <button type="button" class="button button-link-delete" id="btn-quitar-logo-cliente" style="margin-left: 10px; color: var(--ga-danger);">
+                                <?php esc_html_e('Quitar', 'gestionadmin-wolk'); ?>
+                            </button>
+                        </div>
+                        <p class="description" style="margin-top: 5px;">
+                            <?php esc_html_e('Logo del cliente para mostrar en documentos y portales. Formatos: PNG, JPG, SVG.', 'gestionadmin-wolk'); ?>
+                        </p>
+                    </div>
+
                     <!-- ====== SECCIÓN: Contacto ====== -->
                     <h4 style="margin: 20px 0 10px; border-bottom: 1px solid var(--ga-border); padding-bottom: 5px;">
                         <?php esc_html_e('Información de Contacto', 'gestionadmin-wolk'); ?>
@@ -426,10 +455,62 @@ jQuery(document).ready(function($) {
             'contacto_email'       => $c->contacto_email,
             'contacto_telefono'    => $c->contacto_telefono,
             'metodo_pago_preferido' => $c->metodo_pago_preferido,
+            'url_logo'             => $c->url_logo ?? '',
             'notas'                => $c->notas,
             'activo'               => $c->activo,
         );
     }, $clientes)); ?>;
+
+    // Media Uploader para Logo del Cliente
+    var logoClienteUploader;
+
+    $('#btn-subir-logo-cliente').on('click', function(e) {
+        e.preventDefault();
+
+        if (logoClienteUploader) {
+            logoClienteUploader.open();
+            return;
+        }
+
+        logoClienteUploader = wp.media({
+            title: '<?php echo esc_js(__('Seleccionar Logo del Cliente', 'gestionadmin-wolk')); ?>',
+            button: { text: '<?php echo esc_js(__('Usar este logo', 'gestionadmin-wolk')); ?>' },
+            library: { type: 'image' },
+            multiple: false
+        });
+
+        logoClienteUploader.on('select', function() {
+            var attachment = logoClienteUploader.state().get('selection').first().toJSON();
+            $('#cliente-url-logo').val(attachment.url);
+            updateLogoPreview(attachment.url);
+        });
+
+        logoClienteUploader.open();
+    });
+
+    // Actualizar preview cuando cambia la URL manualmente
+    $('#cliente-url-logo').on('change blur', function() {
+        updateLogoPreview($(this).val());
+    });
+
+    // Quitar logo
+    $('#btn-quitar-logo-cliente').on('click', function(e) {
+        e.preventDefault();
+        $('#cliente-url-logo').val('');
+        $('#cliente-logo-preview').hide();
+    });
+
+    /**
+     * Mostrar/ocultar preview del logo
+     */
+    function updateLogoPreview(url) {
+        if (url && url.trim() !== '') {
+            $('#cliente-logo-preview img').attr('src', url);
+            $('#cliente-logo-preview').show();
+        } else {
+            $('#cliente-logo-preview').hide();
+        }
+    }
 
     /**
      * Resetear formulario a estado inicial (nuevo cliente)
@@ -446,6 +527,10 @@ jQuery(document).ready(function($) {
         // Mostrar razón social por defecto (tipo empresa)
         $('#grupo-razon-social').show();
         $('#cliente-activo').prop('checked', true);
+
+        // Limpiar logo
+        $('#cliente-url-logo').val('');
+        $('#cliente-logo-preview').hide();
     }
 
     /**
@@ -478,11 +563,15 @@ jQuery(document).ready(function($) {
             $('#cliente-contacto-nombre').val(c.contacto_nombre);
             $('#cliente-contacto-cargo').val(c.contacto_cargo);
             $('#cliente-metodo-pago').val(c.metodo_pago_preferido);
+            $('#cliente-url-logo').val(c.url_logo || '');
             $('#cliente-notas').val(c.notas);
             $('#cliente-activo').prop('checked', c.activo == 1);
 
             // Mostrar/ocultar razón social según tipo
             toggleRazonSocial(c.tipo);
+
+            // Mostrar preview del logo si existe
+            updateLogoPreview(c.url_logo || '');
 
             // Scroll al formulario en móvil
             if ($(window).width() < 782) {
@@ -589,6 +678,7 @@ jQuery(document).ready(function($) {
             contacto_nombre: $('#cliente-contacto-nombre').val(),
             contacto_cargo: $('#cliente-contacto-cargo').val(),
             metodo_pago_preferido: $('#cliente-metodo-pago').val(),
+            url_logo: $('#cliente-url-logo').val(),
             notas: $('#cliente-notas').val(),
             activo: $('#cliente-activo').is(':checked') ? 1 : 0
         };

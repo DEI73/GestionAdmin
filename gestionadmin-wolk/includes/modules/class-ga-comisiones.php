@@ -119,8 +119,7 @@ class GA_Comisiones {
             "SELECT c.*,
                     o.codigo as orden_codigo,
                     o.titulo as orden_titulo,
-                    a.nombre as aplicante_nombre,
-                    a.apellido as aplicante_apellido,
+                    a.nombre_completo as aplicante_nombre,
                     ac.tipo_acuerdo,
                     ac.descripcion as acuerdo_descripcion
              FROM {$this->table_name} c
@@ -532,8 +531,7 @@ class GA_Comisiones {
         $sql = "SELECT c.*,
                        o.codigo as orden_codigo,
                        o.titulo as orden_titulo,
-                       a.nombre as aplicante_nombre,
-                       a.apellido as aplicante_apellido,
+                       a.nombre_completo as aplicante_nombre,
                        a.email as aplicante_email,
                        ac.tipo_acuerdo
                 FROM {$this->table_name} c

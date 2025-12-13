@@ -412,8 +412,8 @@ class GA_Admin {
             )
         ));
 
-        // Cargar media uploader para la página de órdenes de trabajo
-        if (strpos($hook_suffix, 'ordenes') !== false) {
+        // Cargar media uploader para páginas que lo necesitan
+        if (strpos($hook_suffix, 'ordenes') !== false || strpos($hook_suffix, 'empresas') !== false || strpos($hook_suffix, 'clientes') !== false) {
             wp_enqueue_media();
         }
     }
@@ -949,6 +949,7 @@ class GA_Admin {
             'contacto_email'      => sanitize_email($_POST['contacto_email'] ?? ''),
             'contacto_telefono'   => sanitize_text_field($_POST['contacto_telefono'] ?? ''),
             'metodo_pago_preferido' => sanitize_text_field($_POST['metodo_pago_preferido'] ?? 'TRANSFERENCIA'),
+            'url_logo'            => esc_url_raw($_POST['url_logo'] ?? ''),
             'notas'               => sanitize_textarea_field($_POST['notas'] ?? ''),
             'activo'              => absint($_POST['activo'] ?? 1),
         );

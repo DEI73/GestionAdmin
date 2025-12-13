@@ -260,8 +260,7 @@ class GA_Solicitudes_Cobro {
 
         $solicitud = $wpdb->get_row($wpdb->prepare(
             "SELECT s.*,
-                    a.nombre as aplicante_nombre,
-                    a.apellido as aplicante_apellido,
+                    a.nombre_completo as aplicante_nombre,
                     a.email as aplicante_email,
                     u.display_name as revisor_nombre
              FROM {$this->table_name} s
@@ -629,9 +628,8 @@ class GA_Solicitudes_Cobro {
         }
 
         if (!empty($args['busqueda'])) {
-            $where[] = '(s.numero_solicitud LIKE %s OR a.nombre LIKE %s OR a.apellido LIKE %s OR a.email LIKE %s)';
+            $where[] = '(s.numero_solicitud LIKE %s OR a.nombre_completo LIKE %s OR a.email LIKE %s)';
             $search = '%' . $wpdb->esc_like($args['busqueda']) . '%';
-            $params[] = $search;
             $params[] = $search;
             $params[] = $search;
             $params[] = $search;
@@ -659,8 +657,7 @@ class GA_Solicitudes_Cobro {
 
         // Query principal
         $sql = "SELECT s.*,
-                       a.nombre as aplicante_nombre,
-                       a.apellido as aplicante_apellido,
+                       a.nombre_completo as aplicante_nombre,
                        a.email as aplicante_email,
                        u.display_name as revisor_nombre
                 FROM {$this->table_name} s
