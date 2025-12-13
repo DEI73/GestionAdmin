@@ -58,6 +58,9 @@ class GA_Activator {
         // Insertar datos iniciales
         self::insert_initial_data($wpdb);
 
+        // Ejecutar migraciones para instalaciones existentes
+        self::run_migrations($wpdb);
+
         // Guardar versión del plugin
         add_option('ga_version', GA_VERSION);
         update_option('ga_db_version', '1.2.0'); // Sprint 5-6: Clientes y Proyectos
@@ -716,5 +719,64 @@ class GA_Activator {
         ) {$charset_collate};";
 
         dbDelta($sql);
+    }
+
+    // =========================================================================
+    // MIGRACIONES PARA INSTALACIONES EXISTENTES
+    // =========================================================================
+
+    /**
+     * Ejecutar migraciones para actualizar instalaciones existentes
+     *
+     * Esta función se ejecuta en cada activación y agrega datos faltantes
+     * sin duplicar los existentes. Útil para agregar nuevos países, etc.
+     *
+     * @param object $wpdb Instancia global de WordPress Database
+     */
+    private static function run_migrations($wpdb) {
+        // Migración 1.2.1: Agregar Costa Rica si no existe
+        self::migration_add_costa_rica($wpdb);
+    }
+
+    /**
+     * Migración: Agregar Costa Rica a la tabla de países
+     *
+     * Costa Rica (CR) con facturación electrónica del Ministerio de Hacienda.
+     * Solo inserta si el país no existe en la tabla.
+     *
+     * @param object $wpdb Instancia global de WordPress Database
+     */
+    private static function migration_add_costa_rica($wpdb) {
+        $table_paises = $wpdb->prefix . 'ga_paises_config';
+
+        // Verificar si Costa Rica ya existe
+        $exists = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$table_paises} WHERE codigo_iso = %s",
+            'CR'
+        ));
+
+        // Solo insertar si no existe
+        if ($exists == 0) {
+            $wpdb->insert(
+                $table_paises,
+                array(
+                    'codigo_iso'           => 'CR',
+                    'nombre'               => 'Costa Rica',
+                    'moneda_codigo'        => 'CRC',
+                    'moneda_simbolo'       => '₡',
+                    'impuesto_nombre'      => 'IVA',
+                    'impuesto_porcentaje'  => 13.00,
+                    'retencion_default'    => 0.00,
+                    'formato_factura'      => 'FE-CR-{YYYY}-{NNNN}',
+                    'requiere_electronica' => 1,
+                    'proveedor_electronica' => 'Ministerio de Hacienda Costa Rica',
+                    'activo'               => 1
+                ),
+                array('%s', '%s', '%s', '%s', '%s', '%f', '%f', '%s', '%d', '%s', '%d')
+            );
+
+            // Log para debug (opcional)
+            error_log('GestionAdmin: Costa Rica (CR) agregado a wp_ga_paises_config');
+        }
     }
 }
