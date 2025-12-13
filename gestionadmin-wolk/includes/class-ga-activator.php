@@ -75,6 +75,11 @@ class GA_Activator {
         self::create_catalogo_bonos_table($wpdb, $charset_collate);
         self::create_ordenes_acuerdos_table($wpdb, $charset_collate);
 
+        // Crear tablas Sprint 11-12 Parte B: Ejecución de Comisiones
+        self::create_comisiones_generadas_table($wpdb, $charset_collate);
+        self::create_solicitudes_cobro_table($wpdb, $charset_collate);
+        self::create_solicitudes_cobro_detalle_table($wpdb, $charset_collate);
+
         // Insertar datos iniciales
         self::insert_initial_data($wpdb);
 
@@ -2092,6 +2097,200 @@ class GA_Activator {
             INDEX idx_tipo (tipo_acuerdo),
             INDEX idx_bono (bono_id),
             INDEX idx_activo (activo)
+        ) {$charset_collate};";
+
+        dbDelta($sql);
+    }
+
+    // =========================================================================
+    // SPRINT 11-12 PARTE B: EJECUCIÓN DE COMISIONES
+    // =========================================================================
+
+    /**
+     * Crear tabla de comisiones generadas
+     *
+     * Almacena comisiones calculadas automáticamente cuando una factura
+     * se marca como pagada. El trigger está en class-ga-facturas.php
+     *
+     * @param wpdb   $wpdb
+     * @param string $charset_collate
+     */
+    private static function create_comisiones_generadas_table($wpdb, $charset_collate) {
+        $table_name = $wpdb->prefix . 'ga_comisiones_generadas';
+
+        $sql = "CREATE TABLE {$table_name} (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * REFERENCIAS AL ORIGEN
+             * ───────────────────────────────────────────────────────────────── */
+            orden_id BIGINT UNSIGNED NOT NULL COMMENT 'FK wp_ga_ordenes_trabajo',
+            acuerdo_id BIGINT UNSIGNED NOT NULL COMMENT 'FK wp_ga_ordenes_acuerdos',
+            aplicante_id BIGINT UNSIGNED NOT NULL COMMENT 'FK wp_ga_aplicantes (quien recibe)',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ORIGEN DEL PAGO (qué factura/documento generó esta comisión)
+             * ───────────────────────────────────────────────────────────────── */
+            pago_origen_id BIGINT UNSIGNED COMMENT 'ID de la factura o documento origen',
+            tipo_origen ENUM('FACTURA', 'PAGO_MANUAL', 'OTRO') DEFAULT 'FACTURA',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * CÁLCULO DE LA COMISIÓN
+             * ───────────────────────────────────────────────────────────────── */
+            monto_base DECIMAL(12,2) NOT NULL COMMENT 'Monto sobre el cual se calculó',
+            porcentaje_aplicado DECIMAL(5,2) DEFAULT NULL COMMENT 'Si fue por porcentaje',
+            monto_fijo_aplicado DECIMAL(12,2) DEFAULT NULL COMMENT 'Si fue monto fijo',
+            monto_comision DECIMAL(12,2) NOT NULL COMMENT 'Monto final de la comisión',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ESTADO DE LA COMISIÓN
+             * ───────────────────────────────────────────────────────────────── */
+            estado ENUM('DISPONIBLE', 'SOLICITADA', 'PAGADA', 'CANCELADA') DEFAULT 'DISPONIBLE',
+            solicitud_id BIGINT UNSIGNED DEFAULT NULL COMMENT 'FK wp_ga_solicitudes_cobro',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * NOTAS Y AUDITORÍA
+             * ───────────────────────────────────────────────────────────────── */
+            notas TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ÍNDICES
+             * ───────────────────────────────────────────────────────────────── */
+            INDEX idx_orden (orden_id),
+            INDEX idx_acuerdo (acuerdo_id),
+            INDEX idx_aplicante (aplicante_id),
+            INDEX idx_estado (estado),
+            INDEX idx_solicitud (solicitud_id),
+            INDEX idx_origen (tipo_origen, pago_origen_id)
+        ) {$charset_collate};";
+
+        dbDelta($sql);
+    }
+
+    /**
+     * Crear tabla de solicitudes de cobro
+     *
+     * Cuando un proveedor quiere cobrar sus comisiones disponibles,
+     * crea una solicitud que debe ser aprobada por finanzas.
+     *
+     * @param wpdb   $wpdb
+     * @param string $charset_collate
+     */
+    private static function create_solicitudes_cobro_table($wpdb, $charset_collate) {
+        $table_name = $wpdb->prefix . 'ga_solicitudes_cobro';
+
+        $sql = "CREATE TABLE {$table_name} (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * IDENTIFICACIÓN
+             * ───────────────────────────────────────────────────────────────── */
+            numero_solicitud VARCHAR(20) NOT NULL UNIQUE COMMENT 'SOL-YYYY-NNNN',
+            aplicante_id BIGINT UNSIGNED NOT NULL COMMENT 'FK wp_ga_aplicantes',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * MONTOS
+             * ───────────────────────────────────────────────────────────────── */
+            monto_disponible DECIMAL(12,2) NOT NULL COMMENT 'Total disponible al momento',
+            monto_solicitado DECIMAL(12,2) NOT NULL COMMENT 'Cuánto solicita el proveedor',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * MÉTODO DE PAGO
+             * ───────────────────────────────────────────────────────────────── */
+            metodo_pago ENUM('BINANCE', 'WISE', 'PAYPAL', 'TRANSFERENCIA_LOCAL', 'OTRO') NOT NULL,
+            datos_pago JSON COMMENT 'Datos según método: wallet, email, cuenta, etc.',
+            moneda VARCHAR(3) DEFAULT 'USD',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * NOTAS DEL SOLICITANTE
+             * ───────────────────────────────────────────────────────────────── */
+            notas_solicitante TEXT COMMENT 'Mensaje del proveedor',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ESTADO Y REVISIÓN
+             * ───────────────────────────────────────────────────────────────── */
+            estado ENUM('PENDIENTE', 'EN_REVISION', 'APROBADA', 'RECHAZADA', 'PAGADA', 'CANCELADA') DEFAULT 'PENDIENTE',
+            revisado_por BIGINT UNSIGNED COMMENT 'WP User ID de quien revisó',
+            notas_revision TEXT COMMENT 'Notas del revisor',
+            fecha_revision DATETIME,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * PAGO
+             * ───────────────────────────────────────────────────────────────── */
+            fecha_pago DATETIME,
+            comprobante_pago VARCHAR(500) COMMENT 'URL o referencia del comprobante',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * AUDITORÍA
+             * ───────────────────────────────────────────────────────────────── */
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ÍNDICES
+             * ───────────────────────────────────────────────────────────────── */
+            INDEX idx_aplicante (aplicante_id),
+            INDEX idx_estado (estado),
+            INDEX idx_fecha (created_at),
+            INDEX idx_metodo (metodo_pago)
+        ) {$charset_collate};";
+
+        dbDelta($sql);
+    }
+
+    /**
+     * Crear tabla de detalle de solicitudes de cobro
+     *
+     * Cada fila representa una comisión incluida en una solicitud.
+     * Permite ajustes de porcentaje si el proveedor negocia.
+     *
+     * @param wpdb   $wpdb
+     * @param string $charset_collate
+     */
+    private static function create_solicitudes_cobro_detalle_table($wpdb, $charset_collate) {
+        $table_name = $wpdb->prefix . 'ga_solicitudes_cobro_detalle';
+
+        $sql = "CREATE TABLE {$table_name} (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * REFERENCIAS
+             * ───────────────────────────────────────────────────────────────── */
+            solicitud_id BIGINT UNSIGNED NOT NULL COMMENT 'FK wp_ga_solicitudes_cobro',
+            comision_id BIGINT UNSIGNED NOT NULL COMMENT 'FK wp_ga_comisiones_generadas',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * MONTOS ORIGINALES (snapshot al momento de incluir)
+             * ───────────────────────────────────────────────────────────────── */
+            monto_original DECIMAL(12,2) NOT NULL COMMENT 'Monto de la comisión original',
+            porcentaje_original DECIMAL(5,2) COMMENT 'Porcentaje original si aplicaba',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * AJUSTES (si el proveedor acepta menos)
+             * ───────────────────────────────────────────────────────────────── */
+            tipo_ajuste ENUM('NINGUNO', 'PORCENTAJE_REDUCIDO', 'MONTO_FIJO') DEFAULT 'NINGUNO',
+            porcentaje_solicitado DECIMAL(5,2) COMMENT 'Nuevo % si hay ajuste',
+            monto_solicitado DECIMAL(12,2) NOT NULL COMMENT 'Monto final solicitado',
+            motivo_ajuste TEXT COMMENT 'Por qué se ajustó',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ESTADO
+             * ───────────────────────────────────────────────────────────────── */
+            incluida TINYINT(1) DEFAULT 1 COMMENT '1=incluida en solicitud',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * AUDITORÍA
+             * ───────────────────────────────────────────────────────────────── */
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ÍNDICES
+             * ───────────────────────────────────────────────────────────────── */
+            INDEX idx_solicitud (solicitud_id),
+            INDEX idx_comision (comision_id),
+            UNIQUE KEY unique_solicitud_comision (solicitud_id, comision_id)
         ) {$charset_collate};";
 
         dbDelta($sql);

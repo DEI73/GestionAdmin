@@ -758,7 +758,7 @@ class GA_Facturas {
         }
 
         // Actualizar factura
-        $wpdb->update(
+        $result = $wpdb->update(
             $this->table_name,
             array(
                 'monto_pagado'    => $nuevo_pagado,
@@ -768,7 +768,39 @@ class GA_Facturas {
             array('id' => $id)
         );
 
+        if ($result === false) {
+            return new WP_Error('db_error', __('Error al actualizar la factura', 'gestionadmin-wolk'));
+        }
+
+        // Si la factura se marca como PAGADA, calcular comisiones automáticamente
+        if ($nuevo_estado === 'PAGADA' && !empty($factura->orden_id)) {
+            $this->calcular_comisiones_factura($id);
+        }
+
         return true;
+    }
+
+    /**
+     * Calcular y generar comisiones cuando una factura se paga
+     *
+     * Este método se llama automáticamente cuando una factura cambia
+     * al estado 'PAGADA' y tiene una orden de trabajo asociada.
+     *
+     * @param int $factura_id ID de la factura pagada
+     * @return array|WP_Error Comisiones creadas o error
+     */
+    private function calcular_comisiones_factura($factura_id) {
+        // Cargar módulo de comisiones si existe
+        $comisiones_file = GA_PLUGIN_DIR . 'includes/modules/class-ga-comisiones.php';
+
+        if (!file_exists($comisiones_file)) {
+            return new WP_Error('module_not_found', __('Módulo de comisiones no encontrado', 'gestionadmin-wolk'));
+        }
+
+        require_once $comisiones_file;
+
+        $comisiones_module = GA_Comisiones::get_instance();
+        return $comisiones_module->calcular_por_factura($factura_id);
     }
 
     /**

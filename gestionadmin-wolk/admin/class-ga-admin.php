@@ -321,6 +321,26 @@ class GA_Admin {
             array($this, 'render_catalogo_bonos')
         );
 
+        // Comisiones Generadas (Sprint 11-12 Parte B)
+        add_submenu_page(
+            'gestionadmin',
+            __('Comisiones', 'gestionadmin-wolk'),
+            __('Comisiones', 'gestionadmin-wolk'),
+            'manage_options',
+            'ga-comisiones',
+            array($this, 'render_comisiones')
+        );
+
+        // Solicitudes de Cobro (Sprint 11-12 Parte B)
+        add_submenu_page(
+            'gestionadmin',
+            __('Solicitudes Cobro', 'gestionadmin-wolk'),
+            __('Solicitudes Cobro', 'gestionadmin-wolk'),
+            'manage_options',
+            'ga-solicitudes-cobro',
+            array($this, 'render_solicitudes_cobro')
+        );
+
         // Separador visual (Configuración)
         add_submenu_page(
             'gestionadmin',
@@ -1196,6 +1216,36 @@ class GA_Admin {
             wp_die(esc_html__('No tienes permisos para acceder a esta página.', 'gestionadmin-wolk'));
         }
         include GA_PLUGIN_DIR . 'admin/views/catalogo-bonos.php';
+    }
+
+    /**
+     * Renderizar página de Comisiones Generadas
+     *
+     * Muestra listado de comisiones calculadas automáticamente
+     * cuando se pagan facturas de órdenes de trabajo.
+     *
+     * @since 1.5.0
+     */
+    public function render_comisiones() {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('No tienes permisos para acceder a esta página.', 'gestionadmin-wolk'));
+        }
+        include GA_PLUGIN_DIR . 'admin/views/comisiones.php';
+    }
+
+    /**
+     * Renderizar página de Solicitudes de Cobro
+     *
+     * Gestiona solicitudes de pago de los proveedores.
+     * Permite aprobar, rechazar y marcar como pagadas.
+     *
+     * @since 1.5.0
+     */
+    public function render_solicitudes_cobro() {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('No tienes permisos para acceder a esta página.', 'gestionadmin-wolk'));
+        }
+        include GA_PLUGIN_DIR . 'admin/views/solicitudes-cobro.php';
     }
 
     // =========================================================================
