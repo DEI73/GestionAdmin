@@ -109,6 +109,11 @@ class GA_Admin {
         // Sprint 9-10: Facturación
         require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-facturas.php';
         require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-cotizaciones.php';
+
+        // Sprint 11-12: Acuerdos Económicos
+        require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-empresas.php';
+        require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-catalogo-bonos.php';
+        require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-ordenes-acuerdos.php';
     }
 
     /**
@@ -284,6 +289,36 @@ class GA_Admin {
             'manage_options',
             'gestionadmin-cotizaciones',
             array($this, 'render_cotizaciones')
+        );
+
+        // Separador visual (Sprint 11-12: Configuración Económica)
+        add_submenu_page(
+            'gestionadmin',
+            '',
+            '── ' . __('Config. Económica', 'gestionadmin-wolk') . ' ──',
+            'manage_options',
+            '#ga-separator-economica',
+            '__return_false'
+        );
+
+        // Mis Empresas (Sprint 11-12)
+        add_submenu_page(
+            'gestionadmin',
+            __('Mis Empresas', 'gestionadmin-wolk'),
+            __('Mis Empresas', 'gestionadmin-wolk'),
+            'manage_options',
+            'gestionadmin-empresas',
+            array($this, 'render_empresas')
+        );
+
+        // Catálogo de Bonos (Sprint 11-12)
+        add_submenu_page(
+            'gestionadmin',
+            __('Catálogo Bonos', 'gestionadmin-wolk'),
+            __('Catálogo Bonos', 'gestionadmin-wolk'),
+            'manage_options',
+            'gestionadmin-catalogo-bonos',
+            array($this, 'render_catalogo_bonos')
         );
 
         // Separador visual (Configuración)
@@ -1130,6 +1165,40 @@ class GA_Admin {
     }
 
     // =========================================================================
+    // RENDER PAGES - SPRINT 11-12 (CONFIG. ECONÓMICA)
+    // =========================================================================
+
+    /**
+     * Renderizar Mis Empresas
+     *
+     * Página de gestión de empresas propias (emisoras de facturas).
+     * Permite administrar múltiples empresas por país.
+     *
+     * @since 1.5.0
+     */
+    public function render_empresas() {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('No tienes permisos para acceder a esta página.', 'gestionadmin-wolk'));
+        }
+        include GA_PLUGIN_DIR . 'admin/views/empresas.php';
+    }
+
+    /**
+     * Renderizar Catálogo de Bonos
+     *
+     * Página de gestión del catálogo de bonos predefinidos.
+     * Los bonos se pueden asignar a órdenes de trabajo.
+     *
+     * @since 1.5.0
+     */
+    public function render_catalogo_bonos() {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('No tienes permisos para acceder a esta página.', 'gestionadmin-wolk'));
+        }
+        include GA_PLUGIN_DIR . 'admin/views/catalogo-bonos.php';
+    }
+
+    // =========================================================================
     // AJAX HANDLERS - ÓRDENES DE TRABAJO (Sprint 7-8)
     // =========================================================================
 
@@ -1138,8 +1207,10 @@ class GA_Admin {
      *
      * Crea o actualiza una orden de trabajo del Marketplace.
      * Genera código automático OT-YYYY-NNNN para nuevas órdenes.
+     * Sprint 11-12: Incluye empresa_id y acuerdos económicos.
      *
      * @since 1.3.0
+     * @updated 1.5.0 - Agregado soporte para empresa_id y acuerdos
      */
     public function ajax_save_orden_trabajo() {
         check_ajax_referer('ga_admin_nonce', 'nonce');
@@ -1180,6 +1251,8 @@ class GA_Admin {
             'cliente_id'              => absint($_POST['cliente_id'] ?? 0) ?: null,
             'caso_id'                 => absint($_POST['caso_id'] ?? 0) ?: null,
             'proyecto_id'             => absint($_POST['proyecto_id'] ?? 0) ?: null,
+            // Sprint 11-12: Empresa pagadora
+            'empresa_id'              => absint($_POST['empresa_id'] ?? 0) ?: null,
         );
 
         $result = GA_Ordenes_Trabajo::save($data);
@@ -1188,9 +1261,24 @@ class GA_Admin {
             wp_send_json_error(array('message' => $result['message']));
         }
 
+        $orden_id = $result['id'];
+
+        // Sprint 11-12: Guardar acuerdos económicos
+        if (!empty($_POST['acuerdos'])) {
+            $acuerdos_data = json_decode(stripslashes($_POST['acuerdos']), true);
+            if (is_array($acuerdos_data) && !empty($acuerdos_data)) {
+                $acuerdos_instance = GA_Ordenes_Acuerdos::get_instance();
+                $acuerdos_result = $acuerdos_instance->guardar_acuerdos($orden_id, $acuerdos_data);
+                if (is_wp_error($acuerdos_result)) {
+                    // No fallamos la operación principal, pero agregamos mensaje
+                    $result['message'] .= ' ' . __('Nota: Error al guardar algunos acuerdos.', 'gestionadmin-wolk');
+                }
+            }
+        }
+
         wp_send_json_success(array(
             'message' => $result['message'],
-            'id'      => $result['id'],
+            'id'      => $orden_id,
             'codigo'  => $result['codigo'] ?? '',
         ));
     }

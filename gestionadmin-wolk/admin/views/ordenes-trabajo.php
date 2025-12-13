@@ -14,10 +14,21 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// Cargar módulos necesarios para acuerdos económicos
+require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-empresas.php';
+require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-catalogo-bonos.php';
+require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-ordenes-acuerdos.php';
+
 // Obtener datos
 $ordenes = GA_Ordenes_Trabajo::get_all();
 $clientes = GA_Clientes::get_all(array('activo' => 1));
 $estadisticas = GA_Ordenes_Trabajo::get_estadisticas();
+
+// Datos para acuerdos económicos
+$empresas = GA_Empresas::get_instance()->get_activas();
+$bonos_catalogo = GA_Catalogo_Bonos::get_instance()->get_activos();
+$tipos_acuerdo = GA_Ordenes_Acuerdos::$tipos_acuerdo;
+$frecuencias_pago = GA_Ordenes_Acuerdos::$frecuencias_pago;
 
 // Enums para los selectores
 $estados = GA_Ordenes_Trabajo::get_estados();
@@ -276,6 +287,25 @@ $prioridades = GA_Ordenes_Trabajo::get_prioridades();
                         </div>
                     </div>
 
+                    <div class="ga-row">
+                        <div class="ga-col ga-col-6">
+                            <div class="ga-form-group">
+                                <label class="ga-form-label" for="orden-empresa">
+                                    <?php esc_html_e('Empresa Pagadora', 'gestionadmin-wolk'); ?> *
+                                </label>
+                                <select id="orden-empresa" name="empresa_id" class="ga-form-input" required>
+                                    <option value=""><?php esc_html_e('— Seleccionar empresa —', 'gestionadmin-wolk'); ?></option>
+                                    <?php foreach ($empresas as $empresa) : ?>
+                                        <option value="<?php echo esc_attr($empresa->id); ?>">
+                                            <?php echo esc_html($empresa->nombre . ' (' . $empresa->pais_iso . ')'); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <p class="description"><?php esc_html_e('Empresa que realizará los pagos al aplicante contratado.', 'gestionadmin-wolk'); ?></p>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="ga-form-group">
                         <label class="ga-form-label" for="orden-descripcion">
                             <?php esc_html_e('Descripción del trabajo', 'gestionadmin-wolk'); ?>
@@ -443,6 +473,67 @@ $prioridades = GA_Ordenes_Trabajo::get_prioridades();
                     </div>
                 </div>
 
+                <!-- =========================================================================
+                     ACUERDOS ECONÓMICOS
+                ========================================================================== -->
+                <div class="ga-form-section ga-acuerdos-section">
+                    <h3>
+                        <span class="dashicons dashicons-money-alt"></span>
+                        <?php esc_html_e('Acuerdos Económicos', 'gestionadmin-wolk'); ?>
+                    </h3>
+                    <p class="description" style="margin-bottom: 15px;">
+                        <?php esc_html_e('Define cómo se compensará al aplicante contratado. Puedes agregar múltiples acuerdos.', 'gestionadmin-wolk'); ?>
+                    </p>
+
+                    <div id="ga-acuerdos-container">
+                        <!-- Los acuerdos se agregan dinámicamente aquí -->
+                    </div>
+
+                    <div class="ga-acuerdos-actions">
+                        <button type="button" class="ga-btn ga-btn-secondary" id="ga-btn-agregar-acuerdo">
+                            <span class="dashicons dashicons-plus-alt2"></span>
+                            <?php esc_html_e('Agregar Acuerdo', 'gestionadmin-wolk'); ?>
+                        </button>
+
+                        <div class="ga-acuerdos-quick-add">
+                            <select id="ga-quick-add-tipo" class="ga-form-input">
+                                <option value=""><?php esc_html_e('— Agregar rápido —', 'gestionadmin-wolk'); ?></option>
+                                <optgroup label="<?php esc_attr_e('Pago Principal', 'gestionadmin-wolk'); ?>">
+                                    <option value="HORA_REPORTADA"><?php esc_html_e('Por hora reportada', 'gestionadmin-wolk'); ?></option>
+                                    <option value="HORA_APROBADA"><?php esc_html_e('Por hora aprobada', 'gestionadmin-wolk'); ?></option>
+                                    <option value="TRABAJO_COMPLETADO"><?php esc_html_e('Por trabajo completado', 'gestionadmin-wolk'); ?></option>
+                                </optgroup>
+                                <optgroup label="<?php esc_attr_e('Comisiones', 'gestionadmin-wolk'); ?>">
+                                    <option value="COMISION_FACTURA"><?php esc_html_e('Comisión por factura', 'gestionadmin-wolk'); ?></option>
+                                    <option value="COMISION_HORAS_SUPERVISADAS"><?php esc_html_e('Comisión por horas supervisadas', 'gestionadmin-wolk'); ?></option>
+                                </optgroup>
+                                <optgroup label="<?php esc_attr_e('Metas', 'gestionadmin-wolk'); ?>">
+                                    <option value="META_RENTABILIDAD"><?php esc_html_e('Meta de rentabilidad', 'gestionadmin-wolk'); ?></option>
+                                </optgroup>
+                            </select>
+                            <?php if (!empty($bonos_catalogo)) : ?>
+                                <select id="ga-quick-add-bono" class="ga-form-input">
+                                    <option value=""><?php esc_html_e('— Agregar bono —', 'gestionadmin-wolk'); ?></option>
+                                    <?php foreach ($bonos_catalogo as $bono) : ?>
+                                        <option value="<?php echo esc_attr($bono->id); ?>"
+                                                data-valor="<?php echo esc_attr($bono->valor_default); ?>"
+                                                data-tipo-valor="<?php echo esc_attr($bono->tipo_valor); ?>"
+                                                data-frecuencia="<?php echo esc_attr($bono->frecuencia); ?>">
+                                            <?php echo esc_html($bono->nombre); ?>
+                                            (<?php echo $bono->tipo_valor === 'PORCENTAJE' ? esc_html($bono->valor_default . '%') : '$' . esc_html(number_format($bono->valor_default, 2)); ?>)
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <div class="ga-acuerdos-resumen" id="ga-acuerdos-resumen" style="display:none;">
+                        <strong><?php esc_html_e('Resumen:', 'gestionadmin-wolk'); ?></strong>
+                        <span id="ga-resumen-texto"></span>
+                    </div>
+                </div>
+
                 <!-- Estado (solo en edición) -->
                 <div class="ga-form-section" id="ga-section-estado" style="display: none;">
                     <h3><?php esc_html_e('Estado', 'gestionadmin-wolk'); ?></h3>
@@ -487,6 +578,9 @@ jQuery(document).ready(function($) {
     // =========================================================================
 
     var ordenes = <?php echo wp_json_encode(array_map(function($o) {
+        // Obtener acuerdos de la orden
+        $acuerdos_instance = GA_Ordenes_Acuerdos::get_instance();
+        $acuerdos = $acuerdos_instance->get_por_orden($o->id, false);
         return array(
             'id'                      => $o->id,
             'codigo'                  => $o->codigo,
@@ -507,8 +601,31 @@ jQuery(document).ready(function($) {
             'estado'                  => $o->estado,
             'prioridad'               => $o->prioridad,
             'cliente_id'              => $o->cliente_id,
+            'empresa_id'              => $o->empresa_id,
+            'acuerdos'                => $acuerdos,
         );
     }, $ordenes)); ?>;
+
+    // Catálogo de bonos para el selector
+    var bonosCatalogo = <?php echo wp_json_encode(array_map(function($b) {
+        return array(
+            'id'          => $b->id,
+            'codigo'      => $b->codigo,
+            'nombre'      => $b->nombre,
+            'tipo_valor'  => $b->tipo_valor,
+            'valor'       => $b->valor_default,
+            'frecuencia'  => $b->frecuencia,
+            'condicion'   => $b->condicion_descripcion,
+            'icono'       => $b->icono,
+        );
+    }, $bonos_catalogo)); ?>;
+
+    // Tipos de acuerdo y frecuencias
+    var tiposAcuerdo = <?php echo wp_json_encode($tipos_acuerdo); ?>;
+    var frecuenciasPago = <?php echo wp_json_encode($frecuencias_pago); ?>;
+
+    // Contador para acuerdos
+    var acuerdoCounter = 0;
 
     // =========================================================================
     // MODAL FUNCTIONS
@@ -528,6 +645,10 @@ jQuery(document).ready(function($) {
         $('#orden-id').val(0);
         $('#ga-modal-title-orden').text('<?php echo esc_js(__('Nueva Orden de Trabajo', 'gestionadmin-wolk')); ?>');
         $('#ga-section-estado').hide();
+        // Limpiar acuerdos
+        $('#ga-acuerdos-container').empty();
+        acuerdoCounter = 0;
+        actualizarResumenAcuerdos();
     }
 
     function loadOrden(id) {
@@ -551,6 +672,7 @@ jQuery(document).ready(function($) {
         $('#orden-duracion').val(o.duracion_estimada_dias);
         $('#orden-estado').val(o.estado);
         $('#orden-cliente').val(o.cliente_id);
+        $('#orden-empresa').val(o.empresa_id);
 
         // Habilidades (JSON to comma-separated)
         if (o.habilidades_requeridas) {
@@ -562,8 +684,124 @@ jQuery(document).ready(function($) {
             }
         }
 
+        // Cargar acuerdos económicos
+        $('#ga-acuerdos-container').empty();
+        acuerdoCounter = 0;
+        if (o.acuerdos && o.acuerdos.length > 0) {
+            o.acuerdos.forEach(function(acuerdo) {
+                agregarAcuerdo(acuerdo);
+            });
+        }
+        actualizarResumenAcuerdos();
+
         $('#ga-modal-title-orden').text('<?php echo esc_js(__('Editar Orden:', 'gestionadmin-wolk')); ?> ' + o.codigo);
         $('#ga-section-estado').show();
+    }
+
+    // =========================================================================
+    // FUNCIONES DE ACUERDOS ECONÓMICOS
+    // =========================================================================
+
+    function agregarAcuerdo(data) {
+        data = data || {};
+        var idx = acuerdoCounter++;
+        var id = data.id || '';
+        var tipo = data.tipo_acuerdo || 'HORA_APROBADA';
+        var valor = data.valor || '';
+        var esPorcentaje = data.es_porcentaje || 0;
+        var bonoId = data.bono_id || '';
+        var descripcion = data.descripcion || '';
+        var frecuencia = data.frecuencia_pago || 'MENSUAL';
+        var activo = data.activo !== undefined ? data.activo : 1;
+
+        var tipoLabel = tiposAcuerdo[tipo] || tipo;
+        var esComision = ['COMISION_FACTURA', 'COMISION_HORAS_SUPERVISADAS', 'META_RENTABILIDAD'].indexOf(tipo) > -1;
+
+        // Para bonos, obtener nombre del catálogo
+        if (tipo === 'BONO' && bonoId) {
+            var bono = bonosCatalogo.find(function(b) { return b.id == bonoId; });
+            if (bono) {
+                tipoLabel = bono.nombre;
+            }
+        }
+
+        var html = '<div class="ga-acuerdo-item" data-idx="' + idx + '">' +
+            '<input type="hidden" name="acuerdos[' + idx + '][id]" value="' + id + '">' +
+            '<input type="hidden" name="acuerdos[' + idx + '][tipo_acuerdo]" value="' + tipo + '">' +
+            '<input type="hidden" name="acuerdos[' + idx + '][bono_id]" value="' + bonoId + '">' +
+            '<input type="hidden" name="acuerdos[' + idx + '][es_porcentaje]" value="' + (esComision ? 1 : esPorcentaje) + '">' +
+            '<input type="hidden" name="acuerdos[' + idx + '][activo]" value="' + activo + '">' +
+
+            '<div class="ga-acuerdo-header">' +
+                '<span class="ga-acuerdo-tipo">' + tipoLabel + '</span>' +
+                '<button type="button" class="ga-btn-remove-acuerdo" data-idx="' + idx + '" title="<?php echo esc_js(__('Eliminar', 'gestionadmin-wolk')); ?>">' +
+                    '<span class="dashicons dashicons-no-alt"></span>' +
+                '</button>' +
+            '</div>' +
+
+            '<div class="ga-acuerdo-body">' +
+                '<div class="ga-acuerdo-field">' +
+                    '<label><?php echo esc_js(__('Valor', 'gestionadmin-wolk')); ?></label>' +
+                    '<div class="ga-input-group">' +
+                        '<span class="ga-input-prefix">' + (esComision ? '' : '$') + '</span>' +
+                        '<input type="number" name="acuerdos[' + idx + '][valor]" value="' + valor + '" step="0.01" min="0" class="ga-form-input ga-acuerdo-valor">' +
+                        '<span class="ga-input-suffix">' + (esComision ? '%' : '') + '</span>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="ga-acuerdo-field">' +
+                    '<label><?php echo esc_js(__('Frecuencia', 'gestionadmin-wolk')); ?></label>' +
+                    '<select name="acuerdos[' + idx + '][frecuencia_pago]" class="ga-form-input">' +
+                        Object.keys(frecuenciasPago).map(function(key) {
+                            return '<option value="' + key + '"' + (frecuencia === key ? ' selected' : '') + '>' + frecuenciasPago[key] + '</option>';
+                        }).join('') +
+                    '</select>' +
+                '</div>' +
+                '<div class="ga-acuerdo-field ga-acuerdo-field-wide">' +
+                    '<label><?php echo esc_js(__('Descripción', 'gestionadmin-wolk')); ?></label>' +
+                    '<input type="text" name="acuerdos[' + idx + '][descripcion]" value="' + (descripcion || '').replace(/"/g, '&quot;') + '" class="ga-form-input" placeholder="<?php echo esc_js(__('Detalles adicionales...', 'gestionadmin-wolk')); ?>">' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+
+        $('#ga-acuerdos-container').append(html);
+        actualizarResumenAcuerdos();
+    }
+
+    function actualizarResumenAcuerdos() {
+        var $items = $('#ga-acuerdos-container .ga-acuerdo-item');
+        var $resumen = $('#ga-acuerdos-resumen');
+
+        if ($items.length === 0) {
+            $resumen.hide();
+            return;
+        }
+
+        var partes = [];
+        $items.each(function() {
+            var tipo = $(this).find('input[name*="[tipo_acuerdo]"]').val();
+            var valor = $(this).find('input[name*="[valor]"]').val() || 0;
+            var esPorcentaje = $(this).find('input[name*="[es_porcentaje]"]').val() == 1;
+
+            var valorStr = esPorcentaje ? valor + '%' : '$' + parseFloat(valor).toFixed(2);
+            var tipoStr = tiposAcuerdo[tipo] || tipo;
+
+            if (tipo === 'HORA_REPORTADA' || tipo === 'HORA_APROBADA') {
+                partes.push(valorStr + '/hora');
+            } else if (tipo === 'TRABAJO_COMPLETADO') {
+                partes.push(valorStr + ' al completar');
+            } else if (tipo === 'COMISION_FACTURA') {
+                partes.push(valor + '% comisión');
+            } else if (tipo === 'BONO') {
+                partes.push('Bono: ' + valorStr);
+            }
+        });
+
+        if (partes.length > 0) {
+            $('#ga-resumen-texto').text(partes.slice(0, 3).join(' + ') + (partes.length > 3 ? '...' : ''));
+            $resumen.show();
+        } else {
+            $resumen.hide();
+        }
     }
 
     // =========================================================================
@@ -596,6 +834,57 @@ jQuery(document).ready(function($) {
         }
     });
 
+    // Agregar acuerdo nuevo
+    $('#ga-btn-agregar-acuerdo').on('click', function() {
+        agregarAcuerdo({ tipo_acuerdo: 'HORA_APROBADA', valor: '', frecuencia_pago: 'MENSUAL' });
+    });
+
+    // Agregar acuerdo rápido por tipo
+    $('#ga-quick-add-tipo').on('change', function() {
+        var tipo = $(this).val();
+        if (tipo) {
+            var defaults = {
+                'HORA_REPORTADA': { valor: 15 },
+                'HORA_APROBADA': { valor: 15 },
+                'TRABAJO_COMPLETADO': { valor: 100, frecuencia_pago: 'AL_FINALIZAR' },
+                'COMISION_FACTURA': { valor: 5 },
+                'COMISION_HORAS_SUPERVISADAS': { valor: 3 },
+                'META_RENTABILIDAD': { valor: 10 },
+            };
+            var data = defaults[tipo] || {};
+            data.tipo_acuerdo = tipo;
+            agregarAcuerdo(data);
+            $(this).val('');
+        }
+    });
+
+    // Agregar bono del catálogo
+    $('#ga-quick-add-bono').on('change', function() {
+        var $option = $(this).find('option:selected');
+        var bonoId = $option.val();
+        if (bonoId) {
+            agregarAcuerdo({
+                tipo_acuerdo: 'BONO',
+                bono_id: bonoId,
+                valor: $option.data('valor') || 0,
+                es_porcentaje: $option.data('tipo-valor') === 'PORCENTAJE' ? 1 : 0,
+                frecuencia_pago: $option.data('frecuencia') || 'MENSUAL'
+            });
+            $(this).val('');
+        }
+    });
+
+    // Eliminar acuerdo
+    $(document).on('click', '.ga-btn-remove-acuerdo', function() {
+        $(this).closest('.ga-acuerdo-item').remove();
+        actualizarResumenAcuerdos();
+    });
+
+    // Actualizar resumen cuando cambia un valor
+    $(document).on('change keyup', '.ga-acuerdo-valor', function() {
+        actualizarResumenAcuerdos();
+    });
+
     // Guardar orden
     $('#ga-form-orden').on('submit', function(e) {
         e.preventDefault();
@@ -610,6 +899,23 @@ jQuery(document).ready(function($) {
         } else {
             habilidades = [];
         }
+
+        // Recopilar acuerdos
+        var acuerdos = [];
+        $('#ga-acuerdos-container .ga-acuerdo-item').each(function() {
+            var $item = $(this);
+            var idx = $item.data('idx');
+            acuerdos.push({
+                id: $item.find('input[name="acuerdos[' + idx + '][id]"]').val(),
+                tipo_acuerdo: $item.find('input[name="acuerdos[' + idx + '][tipo_acuerdo]"]').val(),
+                bono_id: $item.find('input[name="acuerdos[' + idx + '][bono_id]"]').val(),
+                valor: $item.find('input[name="acuerdos[' + idx + '][valor]"]').val(),
+                es_porcentaje: $item.find('input[name="acuerdos[' + idx + '][es_porcentaje]"]').val(),
+                frecuencia_pago: $item.find('select[name="acuerdos[' + idx + '][frecuencia_pago]"]').val(),
+                descripcion: $item.find('input[name="acuerdos[' + idx + '][descripcion]"]').val(),
+                activo: $item.find('input[name="acuerdos[' + idx + '][activo]"]').val()
+            });
+        });
 
         $.post(gaAdmin.ajaxUrl, {
             action: 'ga_save_orden_trabajo',
@@ -631,7 +937,9 @@ jQuery(document).ready(function($) {
             fecha_inicio_estimada: $('#orden-fecha-inicio').val(),
             duracion_estimada_dias: $('#orden-duracion').val(),
             estado: $('#orden-estado').val(),
-            cliente_id: $('#orden-cliente').val()
+            cliente_id: $('#orden-cliente').val(),
+            empresa_id: $('#orden-empresa').val(),
+            acuerdos: JSON.stringify(acuerdos)
         }, function(response) {
             if (response.success) {
                 location.reload();
@@ -810,5 +1118,147 @@ jQuery(document).ready(function($) {
 }
 .ga-btn-link:hover {
     text-decoration: underline;
+}
+
+/* Estilos para sección de Acuerdos Económicos */
+.ga-acuerdos-section h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.ga-acuerdos-section h3 .dashicons {
+    color: #2271b1;
+}
+
+#ga-acuerdos-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 15px;
+}
+
+.ga-acuerdo-item {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 12px;
+}
+
+.ga-acuerdo-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.ga-acuerdo-tipo {
+    font-weight: 600;
+    color: #1d2327;
+    font-size: 13px;
+}
+
+.ga-btn-remove-acuerdo {
+    background: none;
+    border: none;
+    color: #a00;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+.ga-btn-remove-acuerdo:hover {
+    background: #fee;
+    color: #d00;
+}
+
+.ga-acuerdo-body {
+    display: grid;
+    grid-template-columns: 140px 160px 1fr;
+    gap: 10px;
+    align-items: end;
+}
+
+.ga-acuerdo-field label {
+    display: block;
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 4px;
+}
+
+.ga-acuerdo-field-wide {
+    grid-column: span 1;
+}
+
+.ga-input-group {
+    display: flex;
+    align-items: center;
+}
+
+.ga-input-prefix,
+.ga-input-suffix {
+    background: #e0e0e0;
+    padding: 6px 8px;
+    font-size: 12px;
+    color: #666;
+    border: 1px solid #ddd;
+}
+
+.ga-input-prefix {
+    border-right: none;
+    border-radius: 4px 0 0 4px;
+}
+
+.ga-input-suffix {
+    border-left: none;
+    border-radius: 0 4px 4px 0;
+}
+
+.ga-input-group .ga-form-input {
+    border-radius: 0;
+    flex: 1;
+}
+
+.ga-acuerdos-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.ga-acuerdos-quick-add {
+    display: flex;
+    gap: 8px;
+}
+
+.ga-acuerdos-quick-add select {
+    min-width: 180px;
+}
+
+.ga-acuerdos-resumen {
+    margin-top: 15px;
+    padding: 10px 15px;
+    background: #e7f5e7;
+    border: 1px solid #c3e6c3;
+    border-radius: 4px;
+    color: #2e7d32;
+    font-size: 13px;
+}
+
+.ga-acuerdos-resumen strong {
+    margin-right: 8px;
+}
+
+.ga-btn-secondary {
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    color: #1d2327;
+}
+.ga-btn-secondary:hover {
+    background: #e5e5e5;
+}
+.ga-btn-secondary .dashicons {
+    vertical-align: middle;
+    margin-right: 4px;
 }
 </style>

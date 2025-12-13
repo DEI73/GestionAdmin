@@ -35,6 +35,11 @@ $modalidades = GA_Ordenes_Trabajo::get_modalidades();
 $tipos_pago = GA_Ordenes_Trabajo::get_tipos_pago();
 $niveles = GA_Ordenes_Trabajo::get_niveles_experiencia();
 
+// Cargar acuerdos económicos
+require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-ordenes-acuerdos.php';
+$acuerdos_instance = GA_Ordenes_Acuerdos::get_instance();
+$acuerdos = $acuerdos_instance->get_para_portal($orden->id);
+
 // Habilidades
 $habilidades = array();
 if (!empty($orden->habilidades_requeridas)) {
@@ -222,6 +227,25 @@ get_header();
                             </li>
                         <?php endif; ?>
                     </ul>
+
+                    <?php if (!empty($acuerdos)) : ?>
+                        <!-- Compensación / Acuerdos Económicos -->
+                        <div class="ga-compensation-section">
+                            <h4 class="ga-compensation-title">
+                                <span class="dashicons dashicons-money-alt"></span>
+                                <?php esc_html_e('Compensación', 'gestionadmin-wolk'); ?>
+                            </h4>
+                            <ul class="ga-compensation-list">
+                                <?php foreach ($acuerdos as $acuerdo) : ?>
+                                    <li class="ga-compensation-item">
+                                        <span class="ga-compensation-type"><?php echo esc_html($acuerdo['tipo_label']); ?></span>
+                                        <span class="ga-compensation-value"><?php echo esc_html($acuerdo['valor_formateado']); ?></span>
+                                        <span class="ga-compensation-freq"><?php echo esc_html($acuerdo['frecuencia']); ?></span>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
                 <div class="ga-apply-card-footer">

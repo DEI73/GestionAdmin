@@ -70,6 +70,11 @@ class GA_Activator {
         self::create_cotizaciones_table($wpdb, $charset_collate);
         self::create_cotizaciones_detalle_table($wpdb, $charset_collate);
 
+        // Crear tablas Sprint 11-12: Acuerdos Económicos
+        self::create_empresas_table($wpdb, $charset_collate);
+        self::create_catalogo_bonos_table($wpdb, $charset_collate);
+        self::create_ordenes_acuerdos_table($wpdb, $charset_collate);
+
         // Insertar datos iniciales
         self::insert_initial_data($wpdb);
 
@@ -78,7 +83,7 @@ class GA_Activator {
 
         // Guardar versión del plugin
         add_option('ga_version', GA_VERSION);
-        update_option('ga_db_version', '1.4.0'); // Sprint 9-10: Facturación
+        update_option('ga_db_version', '1.5.0'); // Sprint 11-12: Acuerdos Económicos
 
         // Crear roles personalizados
         self::create_custom_roles();
@@ -1200,6 +1205,9 @@ class GA_Activator {
     private static function run_migrations($wpdb) {
         // Migración 1.2.1: Agregar Costa Rica si no existe
         self::migration_add_costa_rica($wpdb);
+
+        // Migración 1.5.0: Agregar columna empresa_id a ordenes_trabajo
+        self::migration_add_empresa_id_ordenes($wpdb);
     }
 
     /**
@@ -1239,6 +1247,30 @@ class GA_Activator {
                 array('%s', '%s', '%s', '%s', '%s', '%f', '%f', '%s', '%d', '%s', '%d')
             );
 
+        }
+    }
+
+    /**
+     * Migración: Agregar columna empresa_id a wp_ga_ordenes_trabajo
+     *
+     * Esta columna permite asociar una empresa pagadora a cada orden de trabajo.
+     * Se agrega en Sprint 11-12 para acuerdos económicos.
+     *
+     * @param object $wpdb Instancia global de WordPress Database
+     */
+    private static function migration_add_empresa_id_ordenes($wpdb) {
+        $table_ordenes = $wpdb->prefix . 'ga_ordenes_trabajo';
+
+        // Verificar si la columna ya existe
+        $column_exists = $wpdb->get_results($wpdb->prepare(
+            "SHOW COLUMNS FROM {$table_ordenes} LIKE %s",
+            'empresa_id'
+        ));
+
+        // Solo agregar si no existe
+        if (empty($column_exists)) {
+            $wpdb->query("ALTER TABLE {$table_ordenes} ADD COLUMN empresa_id INT COMMENT 'FK wp_ga_empresas - Empresa pagadora' AFTER cliente_id");
+            $wpdb->query("ALTER TABLE {$table_ordenes} ADD INDEX idx_empresa (empresa_id)");
         }
     }
 
@@ -1775,6 +1807,291 @@ class GA_Activator {
             INDEX idx_cotizacion (cotizacion_id),
             INDEX idx_tipo (tipo),
             INDEX idx_orden (orden)
+        ) {$charset_collate};";
+
+        dbDelta($sql);
+    }
+
+    // =========================================================================
+    // TABLAS SPRINT 11-12: ACUERDOS ECONÓMICOS
+    // =========================================================================
+
+    /**
+     * Crear tabla wp_ga_empresas
+     *
+     * =========================================================================
+     * PROPÓSITO:
+     * =========================================================================
+     * Catálogo de empresas propias de la organización. Cada empresa puede
+     * tener su propia configuración fiscal y ser la entidad pagadora en
+     * órdenes de trabajo.
+     *
+     * Ejemplos: "Wolk CR", "Wolk USA", "Wolk CO"
+     *
+     * =========================================================================
+     * USO PRINCIPAL:
+     * =========================================================================
+     * - Seleccionar qué empresa paga en cada orden de trabajo
+     * - Definir entidad legal para contratos
+     * - Configuración fiscal por empresa/país
+     *
+     * @param object $wpdb Instancia global de WordPress Database
+     * @param string $charset_collate Charset y collation de la BD
+     */
+    private static function create_empresas_table($wpdb, $charset_collate) {
+        $table_name = $wpdb->prefix . 'ga_empresas';
+
+        $sql = "CREATE TABLE {$table_name} (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * IDENTIFICACIÓN
+             * ───────────────────────────────────────────────────────────────── */
+            codigo VARCHAR(20) NOT NULL UNIQUE COMMENT 'Código corto: WOLK-CR, WOLK-US',
+            nombre VARCHAR(200) NOT NULL COMMENT 'Nombre comercial: Wolk Costa Rica',
+            razon_social VARCHAR(200) NOT NULL COMMENT 'Razón social legal completa',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * DATOS FISCALES
+             * ───────────────────────────────────────────────────────────────── */
+            identificacion_tipo VARCHAR(20) COMMENT 'Tipo: NIT, EIN, RUT, Cédula Jurídica',
+            identificacion_fiscal VARCHAR(50) NOT NULL COMMENT 'Número de identificación fiscal',
+            pais_id INT COMMENT 'FK wp_ga_paises_config - País de la empresa',
+            pais_iso VARCHAR(2) NOT NULL COMMENT 'Código ISO del país',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * CONTACTO Y UBICACIÓN
+             * ───────────────────────────────────────────────────────────────── */
+            direccion TEXT COMMENT 'Dirección fiscal completa',
+            ciudad VARCHAR(100) COMMENT 'Ciudad',
+            codigo_postal VARCHAR(20) COMMENT 'Código postal',
+            telefono VARCHAR(50) COMMENT 'Teléfono principal',
+            email VARCHAR(100) COMMENT 'Email corporativo',
+            sitio_web VARCHAR(200) COMMENT 'URL del sitio web',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * BRANDING
+             * ───────────────────────────────────────────────────────────────── */
+            logo_url VARCHAR(500) COMMENT 'URL del logo para documentos',
+            color_primario VARCHAR(7) DEFAULT '#0073aa' COMMENT 'Color hex para documentos',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * CONFIGURACIÓN DE FACTURACIÓN
+             * ───────────────────────────────────────────────────────────────── */
+            prefijo_factura VARCHAR(10) DEFAULT 'FAC' COMMENT 'Prefijo para facturas',
+            consecutivo_factura INT DEFAULT 0 COMMENT 'Último consecutivo usado',
+            pie_factura TEXT COMMENT 'Texto pie de página en facturas',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * DATOS BANCARIOS PARA RECIBIR PAGOS
+             * ───────────────────────────────────────────────────────────────── */
+            datos_bancarios JSON COMMENT 'Array de cuentas bancarias',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ESTADO Y AUDITORÍA
+             * ───────────────────────────────────────────────────────────────── */
+            es_principal TINYINT(1) DEFAULT 0 COMMENT '1=Empresa principal/default',
+            activo TINYINT(1) DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ÍNDICES
+             * ───────────────────────────────────────────────────────────────── */
+            INDEX idx_codigo (codigo),
+            INDEX idx_pais (pais_iso),
+            INDEX idx_activo (activo),
+            INDEX idx_principal (es_principal)
+        ) {$charset_collate};";
+
+        dbDelta($sql);
+    }
+
+    /**
+     * Crear tabla wp_ga_catalogo_bonos
+     *
+     * =========================================================================
+     * PROPÓSITO:
+     * =========================================================================
+     * Catálogo predefinido de bonos que se pueden ofrecer en órdenes de trabajo.
+     * Permite estandarizar los incentivos disponibles.
+     *
+     * Ejemplos:
+     * - Cámara encendida en reuniones: $50/mes
+     * - Puntualidad en daily: $25/mes
+     * - Superar 150 horas mensuales: $100
+     *
+     * @param object $wpdb Instancia global de WordPress Database
+     * @param string $charset_collate Charset y collation de la BD
+     */
+    private static function create_catalogo_bonos_table($wpdb, $charset_collate) {
+        $table_name = $wpdb->prefix . 'ga_catalogo_bonos';
+
+        $sql = "CREATE TABLE {$table_name} (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * IDENTIFICACIÓN DEL BONO
+             * ───────────────────────────────────────────────────────────────── */
+            codigo VARCHAR(30) NOT NULL UNIQUE COMMENT 'Código corto: BONO-CAM, BONO-PUNT',
+            nombre VARCHAR(100) NOT NULL COMMENT 'Nombre del bono: Cámara en reuniones',
+            descripcion TEXT COMMENT 'Descripción detallada del bono y condiciones',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * TIPO DE VALOR
+             * - FIJO: Monto fijo en USD (ej: $50)
+             * - PORCENTAJE: Porcentaje de algo (ej: 5% de horas)
+             * ───────────────────────────────────────────────────────────────── */
+            tipo_valor ENUM('FIJO', 'PORCENTAJE') DEFAULT 'FIJO',
+            valor_default DECIMAL(10,2) DEFAULT 0.00 COMMENT 'Valor sugerido por defecto',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * FRECUENCIA DE PAGO
+             * ───────────────────────────────────────────────────────────────── */
+            frecuencia ENUM('UNICO', 'SEMANAL', 'QUINCENAL', 'MENSUAL') DEFAULT 'MENSUAL',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * CONDICIONES (texto descriptivo)
+             * ───────────────────────────────────────────────────────────────── */
+            condicion_descripcion TEXT COMMENT 'Ej: Mantener cámara encendida en todas las reuniones',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * CATEGORÍA DEL BONO
+             * ───────────────────────────────────────────────────────────────── */
+            categoria ENUM('PRODUCTIVIDAD', 'ASISTENCIA', 'CALIDAD', 'COMUNICACION', 'METAS', 'OTRO') DEFAULT 'OTRO',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ÍCONO PARA MOSTRAR EN UI
+             * ───────────────────────────────────────────────────────────────── */
+            icono VARCHAR(50) DEFAULT 'dashicons-awards' COMMENT 'Clase dashicons o FontAwesome',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ESTADO Y AUDITORÍA
+             * ───────────────────────────────────────────────────────────────── */
+            activo TINYINT(1) DEFAULT 1,
+            orden INT DEFAULT 0 COMMENT 'Orden de aparición en listados',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ÍNDICES
+             * ───────────────────────────────────────────────────────────────── */
+            INDEX idx_codigo (codigo),
+            INDEX idx_categoria (categoria),
+            INDEX idx_activo (activo),
+            INDEX idx_orden (orden)
+        ) {$charset_collate};";
+
+        dbDelta($sql);
+    }
+
+    /**
+     * Crear tabla wp_ga_ordenes_acuerdos
+     *
+     * =========================================================================
+     * PROPÓSITO:
+     * =========================================================================
+     * Almacena los acuerdos económicos específicos de cada orden de trabajo.
+     * Define cómo se compensará al aplicante contratado.
+     *
+     * =========================================================================
+     * TIPOS DE ACUERDO:
+     * =========================================================================
+     * - HORA_REPORTADA: Pago por cada hora que reporte (sin necesidad de aprobación)
+     * - HORA_APROBADA: Pago solo por horas aprobadas por supervisor
+     * - TRABAJO_COMPLETADO: Pago fijo al completar el trabajo
+     * - COMISION_FACTURA: Porcentaje de facturas pagadas del proyecto
+     * - COMISION_HORAS_SUPERVISADAS: % de las horas que supervise
+     * - META_RENTABILIDAD: Bono si la rentabilidad supera X%
+     * - BONO: Bono del catálogo (referencia a wp_ga_catalogo_bonos)
+     *
+     * =========================================================================
+     * EJEMPLO DE USO:
+     * =========================================================================
+     * Una orden puede tener múltiples acuerdos:
+     * 1. $15/hora reportada (principal)
+     * 2. 5% comisión de facturas pagadas
+     * 3. Bono $50 por cámara en reuniones
+     * 4. Bono $100 si supera 150 horas
+     *
+     * @param object $wpdb Instancia global de WordPress Database
+     * @param string $charset_collate Charset y collation de la BD
+     */
+    private static function create_ordenes_acuerdos_table($wpdb, $charset_collate) {
+        $table_name = $wpdb->prefix . 'ga_ordenes_acuerdos';
+
+        $sql = "CREATE TABLE {$table_name} (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * RELACIÓN CON ORDEN DE TRABAJO
+             * ───────────────────────────────────────────────────────────────── */
+            orden_id INT NOT NULL COMMENT 'FK wp_ga_ordenes_trabajo',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * TIPO DE ACUERDO
+             * ───────────────────────────────────────────────────────────────── */
+            tipo_acuerdo ENUM(
+                'HORA_REPORTADA',           /* Pago por hora reportada */
+                'HORA_APROBADA',            /* Pago por hora aprobada */
+                'TRABAJO_COMPLETADO',       /* Pago fijo al completar */
+                'COMISION_FACTURA',         /* % de facturas pagadas */
+                'COMISION_HORAS_SUPERVISADAS', /* % de horas supervisadas */
+                'META_RENTABILIDAD',        /* Bono por rentabilidad */
+                'BONO'                      /* Bono del catálogo */
+            ) NOT NULL,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * VALOR DEL ACUERDO
+             * - Si es_porcentaje=0: valor es monto fijo en USD
+             * - Si es_porcentaje=1: valor es porcentaje (ej: 5.00 = 5%)
+             * ───────────────────────────────────────────────────────────────── */
+            valor DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'Monto o porcentaje',
+            es_porcentaje TINYINT(1) DEFAULT 0 COMMENT '1=El valor es un porcentaje',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * REFERENCIA A BONO DEL CATÁLOGO (solo si tipo='BONO')
+             * ───────────────────────────────────────────────────────────────── */
+            bono_id INT COMMENT 'FK wp_ga_catalogo_bonos (solo si tipo=BONO)',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * CONDICIÓN PARA APLICAR EL ACUERDO
+             * Para bonos condicionales o metas
+             * ───────────────────────────────────────────────────────────────── */
+            condicion VARCHAR(255) COMMENT 'Ej: rentabilidad > 50%, horas > 150',
+            condicion_valor DECIMAL(10,2) COMMENT 'Valor numérico de la condición',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * DESCRIPCIÓN Y NOTAS
+             * ───────────────────────────────────────────────────────────────── */
+            descripcion TEXT COMMENT 'Descripción adicional del acuerdo',
+            notas_internas TEXT COMMENT 'Notas solo para admin',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * FRECUENCIA DE PAGO (para algunos tipos)
+             * ───────────────────────────────────────────────────────────────── */
+            frecuencia_pago ENUM('POR_EVENTO', 'SEMANAL', 'QUINCENAL', 'MENSUAL', 'AL_FINALIZAR') DEFAULT 'MENSUAL',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ESTADO Y ORDEN
+             * ───────────────────────────────────────────────────────────────── */
+            activo TINYINT(1) DEFAULT 1 COMMENT '1=Acuerdo activo',
+            orden INT DEFAULT 0 COMMENT 'Orden de aparición',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * AUDITORÍA
+             * ───────────────────────────────────────────────────────────────── */
+            created_by BIGINT UNSIGNED COMMENT 'Quién creó el acuerdo',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ÍNDICES
+             * ───────────────────────────────────────────────────────────────── */
+            INDEX idx_orden (orden_id),
+            INDEX idx_tipo (tipo_acuerdo),
+            INDEX idx_bono (bono_id),
+            INDEX idx_activo (activo)
         ) {$charset_collate};";
 
         dbDelta($sql);
