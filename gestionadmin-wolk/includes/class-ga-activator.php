@@ -74,6 +74,7 @@ class GA_Activator {
         self::create_empresas_table($wpdb, $charset_collate);
         self::create_catalogo_bonos_table($wpdb, $charset_collate);
         self::create_ordenes_acuerdos_table($wpdb, $charset_collate);
+        self::create_ordenes_bonos_table($wpdb, $charset_collate);
 
         // Crear tablas Sprint 11-12 Parte B: Ejecución de Comisiones
         self::create_comisiones_generadas_table($wpdb, $charset_collate);
@@ -1219,6 +1220,9 @@ class GA_Activator {
 
         // Migración 1.5.2: Agregar campos de presupuesto a proyectos
         self::migration_add_presupuesto_proyectos($wpdb);
+
+        // Migración 1.5.3: Agregar columna url_manual a ordenes_trabajo
+        self::migration_add_url_manual_ordenes($wpdb);
     }
 
     /**
@@ -1259,6 +1263,28 @@ class GA_Activator {
                 "UPDATE {$table}
                  SET tarifa_hora = ROUND(presupuesto_dinero / presupuesto_horas, 2)
                  WHERE presupuesto_horas > 0 AND presupuesto_dinero > 0 AND tarifa_hora = 0"
+            );
+        }
+    }
+
+    /**
+     * Migración: Agregar columna url_manual a ordenes_trabajo
+     *
+     * Permite asociar un documento/manual del puesto a cada orden de trabajo.
+     *
+     * @param object $wpdb Instancia global de WordPress Database
+     */
+    private static function migration_add_url_manual_ordenes($wpdb) {
+        $table = $wpdb->prefix . 'ga_ordenes_trabajo';
+
+        // Verificar si la columna ya existe
+        $column_exists = $wpdb->get_results("SHOW COLUMNS FROM {$table} LIKE 'url_manual'");
+
+        if (empty($column_exists)) {
+            $wpdb->query(
+                "ALTER TABLE {$table}
+                 ADD COLUMN url_manual VARCHAR(500) NULL COMMENT 'URL del manual/documento del puesto'
+                 AFTER requisitos"
             );
         }
     }
@@ -2333,6 +2359,54 @@ class GA_Activator {
             INDEX idx_tipo (tipo_acuerdo),
             INDEX idx_bono (bono_id),
             INDEX idx_activo (activo)
+        ) {$charset_collate};";
+
+        dbDelta($sql);
+    }
+
+    /**
+     * Crear tabla wp_ga_ordenes_bonos
+     *
+     * =========================================================================
+     * PROPÓSITO:
+     * =========================================================================
+     * Relaciona órdenes de trabajo con bonos del catálogo (wp_ga_catalogo_bonos).
+     * Permite personalizar el monto y agregar detalle específico para cada orden.
+     *
+     * Esta tabla es más simple que ordenes_acuerdos y se usa específicamente
+     * para mostrar los bonos disponibles a los aplicantes en el formulario
+     * de órdenes de trabajo.
+     *
+     * @param object $wpdb Instancia global de WordPress Database
+     * @param string $charset_collate Collation de la base de datos
+     */
+    private static function create_ordenes_bonos_table($wpdb, $charset_collate) {
+        $table_name = $wpdb->prefix . 'ga_ordenes_bonos';
+
+        $sql = "CREATE TABLE {$table_name} (
+            id BIGINT(20) NOT NULL AUTO_INCREMENT,
+
+            /* ─────────────────────────────────────────────────────────────────
+             * RELACIONES
+             * ───────────────────────────────────────────────────────────────── */
+            orden_id BIGINT(20) NOT NULL COMMENT 'FK wp_ga_ordenes_trabajo',
+            bono_id BIGINT(20) NOT NULL COMMENT 'FK wp_ga_catalogo_bonos',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * PERSONALIZACIÓN PARA ESTA ORDEN
+             * ───────────────────────────────────────────────────────────────── */
+            detalle TEXT NULL COMMENT 'Detalle específico del bono para esta orden',
+            monto_personalizado DECIMAL(10,2) NULL COMMENT 'Monto personalizado (NULL=usar catálogo)',
+
+            /* ─────────────────────────────────────────────────────────────────
+             * ESTADO
+             * ───────────────────────────────────────────────────────────────── */
+            activo TINYINT(1) DEFAULT 1,
+            created_at DATETIME NOT NULL,
+
+            PRIMARY KEY (id),
+            KEY idx_orden (orden_id),
+            KEY idx_bono (bono_id)
         ) {$charset_collate};";
 
         dbDelta($sql);

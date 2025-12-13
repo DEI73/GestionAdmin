@@ -18,6 +18,7 @@ if (!defined('ABSPATH')) {
 require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-empresas.php';
 require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-catalogo-bonos.php';
 require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-ordenes-acuerdos.php';
+require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-ordenes-bonos.php';
 
 // Obtener datos
 $ordenes = GA_Ordenes_Trabajo::get_all();
@@ -438,6 +439,21 @@ $prioridades = GA_Ordenes_Trabajo::get_prioridades();
                         <textarea id="orden-requisitos-adicionales" name="requisitos_adicionales" class="ga-form-input" rows="3"
                                   placeholder="<?php esc_attr_e('Otros requisitos o notas importantes...', 'gestionadmin-wolk'); ?>"></textarea>
                     </div>
+
+                    <div class="ga-form-group">
+                        <label class="ga-form-label" for="orden-url-manual">
+                            <?php esc_html_e('Manual del Puesto (URL)', 'gestionadmin-wolk'); ?>
+                        </label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="url" id="orden-url-manual" name="url_manual" class="ga-form-input"
+                                   placeholder="<?php esc_attr_e('https://drive.google.com/documento...', 'gestionadmin-wolk'); ?>"
+                                   style="flex: 1;">
+                            <button type="button" class="ga-btn ga-btn-secondary" id="btn-subir-manual">
+                                <?php esc_html_e('Subir a Medios', 'gestionadmin-wolk'); ?>
+                            </button>
+                        </div>
+                        <p class="description"><?php esc_html_e('Enlace al manual, documento de onboarding o instrucciones del puesto (Google Drive, OneDrive, WordPress, etc.)', 'gestionadmin-wolk'); ?></p>
+                    </div>
                 </div>
 
                 <!-- Fechas -->
@@ -534,6 +550,42 @@ $prioridades = GA_Ordenes_Trabajo::get_prioridades();
                     </div>
                 </div>
 
+                <!-- =========================================================================
+                     BONOS DISPONIBLES
+                ========================================================================== -->
+                <div class="ga-form-section ga-bonos-section">
+                    <h3>
+                        <span class="dashicons dashicons-awards"></span>
+                        <?php esc_html_e('Bonos Disponibles', 'gestionadmin-wolk'); ?>
+                    </h3>
+                    <p class="description" style="margin-bottom: 15px;">
+                        <?php esc_html_e('Define los bonos que puede ganar el aplicante en esta orden. Estos se mostrarán en la publicación.', 'gestionadmin-wolk'); ?>
+                    </p>
+
+                    <div class="ga-bonos-actions" style="margin-bottom: 15px;">
+                        <select id="ga-select-bono-catalogo" class="ga-form-input" style="min-width: 300px;">
+                            <option value=""><?php esc_html_e('— Seleccionar bono del catálogo —', 'gestionadmin-wolk'); ?></option>
+                            <?php foreach ($bonos_catalogo as $bono) : ?>
+                                <option value="<?php echo esc_attr($bono->id); ?>"
+                                        data-nombre="<?php echo esc_attr($bono->nombre); ?>"
+                                        data-monto="<?php echo esc_attr($bono->valor_default); ?>"
+                                        data-tipo="<?php echo esc_attr($bono->tipo_valor); ?>">
+                                    <?php echo esc_html($bono->nombre); ?>
+                                    (<?php echo $bono->tipo_valor === 'PORCENTAJE' ? esc_html($bono->valor_default . '%') : '$' . esc_html(number_format($bono->valor_default, 2)); ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button type="button" class="ga-btn ga-btn-secondary" id="ga-btn-agregar-bono">
+                            <span class="dashicons dashicons-plus-alt2"></span>
+                            <?php esc_html_e('Agregar Bono', 'gestionadmin-wolk'); ?>
+                        </button>
+                    </div>
+
+                    <div id="ga-bonos-container">
+                        <!-- Los bonos se agregan dinámicamente aquí -->
+                    </div>
+                </div>
+
                 <!-- Estado (solo en edición) -->
                 <div class="ga-form-section" id="ga-section-estado" style="display: none;">
                     <h3><?php esc_html_e('Estado', 'gestionadmin-wolk'); ?></h3>
@@ -581,6 +633,8 @@ jQuery(document).ready(function($) {
         // Obtener acuerdos de la orden
         $acuerdos_instance = GA_Ordenes_Acuerdos::get_instance();
         $acuerdos = $acuerdos_instance->get_por_orden($o->id, false);
+        // Obtener bonos de la orden
+        $bonos = GA_Ordenes_Bonos::get_para_js($o->id);
         return array(
             'id'                      => $o->id,
             'codigo'                  => $o->codigo,
@@ -595,6 +649,7 @@ jQuery(document).ready(function($) {
             'nivel_experiencia'       => $o->nivel_experiencia,
             'habilidades_requeridas'  => $o->habilidades_requeridas,
             'requisitos_adicionales'  => $o->requisitos_adicionales,
+            'url_manual'              => $o->url_manual ?? '',
             'fecha_limite_aplicacion' => $o->fecha_limite_aplicacion,
             'fecha_inicio_estimada'   => $o->fecha_inicio_estimada,
             'duracion_estimada_dias'  => $o->duracion_estimada_dias,
@@ -603,6 +658,7 @@ jQuery(document).ready(function($) {
             'cliente_id'              => $o->cliente_id,
             'empresa_id'              => $o->empresa_id,
             'acuerdos'                => $acuerdos,
+            'bonos'                   => $bonos,
         );
     }, $ordenes)); ?>;
 
@@ -624,8 +680,9 @@ jQuery(document).ready(function($) {
     var tiposAcuerdo = <?php echo wp_json_encode($tipos_acuerdo); ?>;
     var frecuenciasPago = <?php echo wp_json_encode($frecuencias_pago); ?>;
 
-    // Contador para acuerdos
+    // Contador para acuerdos y bonos
     var acuerdoCounter = 0;
+    var bonoCounter = 0;
 
     // =========================================================================
     // MODAL FUNCTIONS
@@ -649,6 +706,9 @@ jQuery(document).ready(function($) {
         $('#ga-acuerdos-container').empty();
         acuerdoCounter = 0;
         actualizarResumenAcuerdos();
+        // Limpiar bonos
+        $('#ga-bonos-container').empty();
+        bonoCounter = 0;
     }
 
     function loadOrden(id) {
@@ -667,6 +727,7 @@ jQuery(document).ready(function($) {
         $('#orden-nivel-experiencia').val(o.nivel_experiencia);
         $('#orden-ubicacion').val(o.ubicacion_requerida);
         $('#orden-requisitos-adicionales').val(o.requisitos_adicionales);
+        $('#orden-url-manual').val(o.url_manual || '');
         $('#orden-fecha-limite').val(o.fecha_limite_aplicacion ? o.fecha_limite_aplicacion.split(' ')[0] : '');
         $('#orden-fecha-inicio').val(o.fecha_inicio_estimada ? o.fecha_inicio_estimada.split(' ')[0] : '');
         $('#orden-duracion').val(o.duracion_estimada_dias);
@@ -693,6 +754,15 @@ jQuery(document).ready(function($) {
             });
         }
         actualizarResumenAcuerdos();
+
+        // Cargar bonos
+        $('#ga-bonos-container').empty();
+        bonoCounter = 0;
+        if (o.bonos && o.bonos.length > 0) {
+            o.bonos.forEach(function(bono) {
+                agregarBono(bono);
+            });
+        }
 
         $('#ga-modal-title-orden').text('<?php echo esc_js(__('Editar Orden:', 'gestionadmin-wolk')); ?> ' + o.codigo);
         $('#ga-section-estado').show();
@@ -805,6 +875,58 @@ jQuery(document).ready(function($) {
     }
 
     // =========================================================================
+    // FUNCIONES DE BONOS DISPONIBLES
+    // =========================================================================
+
+    /**
+     * Agregar un bono a la lista de bonos disponibles
+     */
+    function agregarBono(data) {
+        data = data || {};
+        var idx = bonoCounter++;
+        var bonoId = data.bono_id || '';
+        var nombre = data.nombre || '';
+        var monto = data.monto_personalizado || data.monto_efectivo || data.monto_catalogo || '';
+        var detalle = data.detalle || '';
+
+        // Si no hay nombre, buscar en catálogo
+        if (!nombre && bonoId) {
+            var bono = bonosCatalogo.find(function(b) { return b.id == bonoId; });
+            if (bono) {
+                nombre = bono.nombre;
+                if (!monto) monto = bono.valor;
+            }
+        }
+
+        var html = '<div class="ga-bono-item" data-idx="' + idx + '">' +
+            '<input type="hidden" name="bonos[' + idx + '][bono_id]" value="' + bonoId + '">' +
+            '<div class="ga-bono-header">' +
+                '<span class="dashicons dashicons-awards" style="color: #2271b1;"></span>' +
+                '<strong>' + nombre + '</strong>' +
+                '<span class="ga-bono-monto">$' + parseFloat(monto || 0).toFixed(2) + '</span>' +
+                '<button type="button" class="ga-btn-remove-bono" data-idx="' + idx + '" title="<?php echo esc_js(__('Quitar', 'gestionadmin-wolk')); ?>">' +
+                    '<span class="dashicons dashicons-no-alt"></span>' +
+                '</button>' +
+            '</div>' +
+            '<div class="ga-bono-body">' +
+                '<div class="ga-bono-field">' +
+                    '<label><?php echo esc_js(__('Monto', 'gestionadmin-wolk')); ?></label>' +
+                    '<div class="ga-input-group">' +
+                        '<span class="ga-input-prefix">$</span>' +
+                        '<input type="number" name="bonos[' + idx + '][monto]" value="' + monto + '" step="0.01" min="0" class="ga-form-input ga-bono-monto-input" placeholder="<?php echo esc_js(__('Vacío = catálogo', 'gestionadmin-wolk')); ?>">' +
+                    '</div>' +
+                '</div>' +
+                '<div class="ga-bono-field ga-bono-field-wide">' +
+                    '<label><?php echo esc_js(__('Detalle', 'gestionadmin-wolk')); ?></label>' +
+                    '<input type="text" name="bonos[' + idx + '][detalle]" value="' + (detalle || '').replace(/"/g, '&quot;') + '" class="ga-form-input" placeholder="<?php echo esc_js(__('Condiciones o detalles para el aplicante...', 'gestionadmin-wolk')); ?>">' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+
+        $('#ga-bonos-container').append(html);
+    }
+
+    // =========================================================================
     // EVENT HANDLERS
     // =========================================================================
 
@@ -885,6 +1007,79 @@ jQuery(document).ready(function($) {
         actualizarResumenAcuerdos();
     });
 
+    // =========================================================================
+    // HANDLERS BONOS DISPONIBLES
+    // =========================================================================
+
+    // Agregar bono del catálogo (sección Bonos Disponibles)
+    $('#ga-btn-agregar-bono').on('click', function() {
+        var $select = $('#ga-select-bono-catalogo');
+        var bonoId = $select.val();
+        if (!bonoId) {
+            alert('<?php echo esc_js(__('Selecciona un bono del catálogo', 'gestionadmin-wolk')); ?>');
+            return;
+        }
+
+        // Verificar si ya está agregado
+        var yaExiste = false;
+        $('#ga-bonos-container .ga-bono-item').each(function() {
+            if ($(this).find('input[name*="[bono_id]"]').val() == bonoId) {
+                yaExiste = true;
+                return false;
+            }
+        });
+
+        if (yaExiste) {
+            alert('<?php echo esc_js(__('Este bono ya está agregado', 'gestionadmin-wolk')); ?>');
+            return;
+        }
+
+        var $option = $select.find('option:selected');
+        agregarBono({
+            bono_id: bonoId,
+            nombre: $option.data('nombre'),
+            monto_catalogo: $option.data('monto')
+        });
+        $select.val('');
+    });
+
+    // Eliminar bono
+    $(document).on('click', '.ga-btn-remove-bono', function() {
+        $(this).closest('.ga-bono-item').remove();
+    });
+
+    // =========================================================================
+    // MEDIA UPLOADER PARA MANUAL
+    // =========================================================================
+
+    var mediaUploader;
+    $('#btn-subir-manual').on('click', function(e) {
+        e.preventDefault();
+
+        // Si ya existe, abrirlo
+        if (mediaUploader) {
+            mediaUploader.open();
+            return;
+        }
+
+        // Crear nuevo media uploader
+        mediaUploader = wp.media({
+            title: '<?php echo esc_js(__('Seleccionar Manual del Puesto', 'gestionadmin-wolk')); ?>',
+            button: {
+                text: '<?php echo esc_js(__('Usar este archivo', 'gestionadmin-wolk')); ?>'
+            },
+            multiple: false
+        });
+
+        // Cuando se seleccione un archivo
+        mediaUploader.on('select', function() {
+            var attachment = mediaUploader.state().get('selection').first().toJSON();
+            $('#orden-url-manual').val(attachment.url);
+        });
+
+        mediaUploader.open();
+    });
+
     // Guardar orden
     $('#ga-form-orden').on('submit', function(e) {
         e.preventDefault();
@@ -917,6 +1112,18 @@ jQuery(document).ready(function($) {
             });
         });
 
+        // Recopilar bonos disponibles
+        var bonos = [];
+        $('#ga-bonos-container .ga-bono-item').each(function() {
+            var $item = $(this);
+            var idx = $item.data('idx');
+            bonos.push({
+                bono_id: $item.find('input[name="bonos[' + idx + '][bono_id]"]').val(),
+                monto: $item.find('input[name="bonos[' + idx + '][monto]"]').val(),
+                detalle: $item.find('input[name="bonos[' + idx + '][detalle]"]').val()
+            });
+        });
+
         $.post(gaAdmin.ajaxUrl, {
             action: 'ga_save_orden_trabajo',
             nonce: gaAdmin.nonce,
@@ -933,13 +1140,15 @@ jQuery(document).ready(function($) {
             ubicacion_requerida: $('#orden-ubicacion').val(),
             habilidades_requeridas: JSON.stringify(habilidades),
             requisitos_adicionales: $('#orden-requisitos-adicionales').val(),
+            url_manual: $('#orden-url-manual').val(),
             fecha_limite_aplicacion: $('#orden-fecha-limite').val(),
             fecha_inicio_estimada: $('#orden-fecha-inicio').val(),
             duracion_estimada_dias: $('#orden-duracion').val(),
             estado: $('#orden-estado').val(),
             cliente_id: $('#orden-cliente').val(),
             empresa_id: $('#orden-empresa').val(),
-            acuerdos: JSON.stringify(acuerdos)
+            acuerdos: JSON.stringify(acuerdos),
+            bonos: JSON.stringify(bonos)
         }, function(response) {
             if (response.success) {
                 location.reload();
@@ -1260,5 +1469,89 @@ jQuery(document).ready(function($) {
 .ga-btn-secondary .dashicons {
     vertical-align: middle;
     margin-right: 4px;
+}
+
+/* Estilos para sección de Bonos Disponibles */
+.ga-bonos-section h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.ga-bonos-section h3 .dashicons {
+    color: #2271b1;
+}
+
+.ga-bonos-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+#ga-bonos-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.ga-bono-item {
+    background: #e7f5ff;
+    border: 1px solid #b8daff;
+    border-radius: 6px;
+    padding: 12px;
+}
+
+.ga-bono-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #c5dff5;
+}
+
+.ga-bono-header strong {
+    flex: 1;
+    color: #1d2327;
+    font-size: 13px;
+}
+
+.ga-bono-monto {
+    background: #2271b1;
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.ga-btn-remove-bono {
+    background: none;
+    border: none;
+    color: #a00;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+.ga-btn-remove-bono:hover {
+    background: #fee;
+    color: #d00;
+}
+
+.ga-bono-body {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    gap: 10px;
+    align-items: end;
+}
+
+.ga-bono-field label {
+    display: block;
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 4px;
+}
+
+.ga-bono-field-wide {
+    grid-column: span 1;
 }
 </style>

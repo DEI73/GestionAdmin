@@ -115,6 +115,7 @@ class GA_Admin {
         require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-empresas.php';
         require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-catalogo-bonos.php';
         require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-ordenes-acuerdos.php';
+        require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-ordenes-bonos.php';
     }
 
     /**
@@ -397,6 +398,11 @@ class GA_Admin {
                 'pauseReason' => __('Motivo de la pausa:', 'gestionadmin-wolk'),
             )
         ));
+
+        // Cargar media uploader para la página de órdenes de trabajo
+        if (strpos($hook_suffix, 'ordenes') !== false) {
+            wp_enqueue_media();
+        }
     }
 
     /**
@@ -1333,6 +1339,7 @@ class GA_Admin {
             'nivel_experiencia'       => sanitize_text_field($_POST['nivel_experiencia'] ?? 'CUALQUIERA'),
             'habilidades_requeridas'  => $habilidades,
             'requisitos_adicionales'  => wp_kses_post($_POST['requisitos_adicionales'] ?? ''),
+            'url_manual'              => esc_url_raw($_POST['url_manual'] ?? ''),
             'fecha_limite_aplicacion' => sanitize_text_field($_POST['fecha_limite_aplicacion'] ?? '') ?: null,
             'fecha_inicio_estimada'   => sanitize_text_field($_POST['fecha_inicio_estimada'] ?? '') ?: null,
             'duracion_estimada_dias'  => absint($_POST['duracion_estimada_dias'] ?? 0) ?: null,
@@ -1363,6 +1370,14 @@ class GA_Admin {
                     // No fallamos la operación principal, pero agregamos mensaje
                     $result['message'] .= ' ' . __('Nota: Error al guardar algunos acuerdos.', 'gestionadmin-wolk');
                 }
+            }
+        }
+
+        // Guardar bonos disponibles
+        if (isset($_POST['bonos'])) {
+            $bonos_data = json_decode(stripslashes($_POST['bonos']), true);
+            if (is_array($bonos_data)) {
+                GA_Ordenes_Bonos::guardar_bonos($orden_id, $bonos_data);
             }
         }
 
