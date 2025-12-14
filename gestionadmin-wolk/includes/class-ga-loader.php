@@ -60,6 +60,14 @@ class GA_Loader {
      * Cargar las dependencias requeridas para este plugin
      */
     private function load_dependencies() {
+        // Cargar integración con tema (disponible en admin y frontend)
+        require_once GA_PLUGIN_DIR . 'includes/class-ga-theme-integration.php';
+        GA_Theme_Integration::get_instance();
+
+        // Cargar sistema de emails profesionales (disponible en admin y frontend)
+        require_once GA_PLUGIN_DIR . 'includes/class-ga-emails.php';
+        GA_Emails::get_instance();
+
         // Cargar clase de administración (carga todos los módulos y menús)
         if (is_admin()) {
             require_once GA_PLUGIN_DIR . 'admin/class-ga-admin.php';

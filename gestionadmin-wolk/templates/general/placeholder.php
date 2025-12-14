@@ -21,7 +21,11 @@ $pages_manager = GA_Pages_Manager::get_instance();
 $page_key = $pages_manager->detect_current_page();
 $page_config = $page_key ? $pages_manager->get_page_config($page_key) : null;
 
+// Usar header del tema (o fallback del plugin si no está activo)
 get_header();
+
+// Imprimir estilos del portal (heredan colores del tema si está activo)
+GA_Theme_Integration::print_portal_styles();
 ?>
 
 <div class="ga-public-container ga-placeholder-page">

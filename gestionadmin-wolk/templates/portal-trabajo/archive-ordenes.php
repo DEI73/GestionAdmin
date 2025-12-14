@@ -4,12 +4,14 @@
  *
  * Muestra todas las órdenes de trabajo publicadas.
  * Incluye filtros por categoría, modalidad y tipo de pago.
+ * Integrado con tema GestionAdmin Theme.
  *
  * URL: /trabajo/
  *
  * @package    GestionAdmin_Wolk
  * @subpackage Templates/PortalTrabajo
  * @since      1.3.0
+ * @updated    1.6.0 - Integración con tema
  */
 
 if (!defined('ABSPATH')) {
@@ -53,8 +55,11 @@ $categorias = GA_Ordenes_Trabajo::get_categorias();
 $modalidades = GA_Ordenes_Trabajo::get_modalidades();
 $tipos_pago = GA_Ordenes_Trabajo::get_tipos_pago();
 
-// Header del tema
+// Usar header del tema (o fallback del plugin si no está activo)
 get_header();
+
+// Imprimir estilos del portal (heredan colores del tema si está activo)
+GA_Theme_Integration::print_portal_styles();
 ?>
 
 <div class="ga-public-container">

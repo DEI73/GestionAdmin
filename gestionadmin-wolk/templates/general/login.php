@@ -4,10 +4,12 @@
  *
  * Página de login personalizada para el sistema.
  * Permite login a todos los tipos de usuarios: aplicantes, empleados, clientes.
+ * Diseño limpio y centrado con colores heredados del tema.
  *
  * @package    GestionAdmin_Wolk
  * @subpackage Templates/General
  * @since      1.3.0
+ * @updated    1.6.0 - Integración con tema, diseño limpio
  * @author     Wolksoftcr.com
  */
 
@@ -33,10 +35,10 @@ if (is_user_logged_in()) {
     exit;
 }
 
+// Procesar login
 $error_message = '';
 $success_message = '';
 
-// Procesar login
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ga_login_nonce'])) {
     if (wp_verify_nonce($_POST['ga_login_nonce'], 'ga_login_action')) {
         $creds = array(
@@ -67,260 +69,460 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ga_login_nonce'])) {
     }
 }
 
-get_header();
-?>
+// Obtener colores del tema
+$color_primary   = GA_Theme_Integration::get_color('primary', '#0056A6');
+$color_secondary = GA_Theme_Integration::get_color('secondary', '#0891B2');
+$color_dark      = GA_Theme_Integration::get_color('dark', '#1F2937');
+$color_accent    = GA_Theme_Integration::get_color('accent', '#10B981');
 
-<div class="ga-public-container ga-login-page">
-    <div class="ga-container">
-        <div class="ga-login-wrapper">
-            <div class="ga-login-card">
-                <div class="ga-login-header">
-                    <h1><?php esc_html_e('Acceso al Sistema', 'gestionadmin-wolk'); ?></h1>
-                    <p><?php esc_html_e('Ingresa tus credenciales para continuar', 'gestionadmin-wolk'); ?></p>
+// Obtener logo y nombre
+$logo_url     = GA_Theme_Integration::get_logo_url();
+$company_name = GA_Theme_Integration::get_company_name();
+
+// Generar gradiente dinámico
+$gradient_start = $color_primary;
+$gradient_end   = $color_dark;
+?>
+<!DOCTYPE html>
+<html <?php language_attributes(); ?>>
+<head>
+    <meta charset="<?php bloginfo('charset'); ?>">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title><?php esc_html_e('Iniciar Sesión', 'gestionadmin-wolk'); ?> - <?php echo esc_html($company_name); ?></title>
+    <?php wp_head(); ?>
+    <style>
+        /* ============================================================
+           RESET Y BASE
+           ============================================================ */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body.ga-login-body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, <?php echo esc_attr($gradient_start); ?> 0%, <?php echo esc_attr($gradient_end); ?> 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ============================================================
+           CONTENEDOR PRINCIPAL
+           ============================================================ */
+        .ga-auth-wrapper {
+            width: 100%;
+            max-width: 420px;
+            animation: fadeInUp 0.5s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ============================================================
+           TARJETA DE LOGIN
+           ============================================================ */
+        .ga-auth-card {
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+        }
+
+        /* Header con logo */
+        .ga-auth-header {
+            background: <?php echo esc_attr($color_primary); ?>;
+            padding: 32px 40px;
+            text-align: center;
+        }
+
+        .ga-auth-logo {
+            margin-bottom: 0;
+        }
+
+        .ga-auth-logo img {
+            max-height: 50px;
+            max-width: 180px;
+            height: auto;
+        }
+
+        .ga-auth-logo-text {
+            color: #ffffff;
+            font-size: 1.75rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        /* Cuerpo del formulario */
+        .ga-auth-body {
+            padding: 40px;
+        }
+
+        .ga-auth-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: <?php echo esc_attr($color_dark); ?>;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .ga-auth-subtitle {
+            font-size: 0.95rem;
+            color: #6B7280;
+            margin-bottom: 32px;
+            text-align: center;
+        }
+
+        /* ============================================================
+           ALERTAS
+           ============================================================ */
+        .ga-auth-alert {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            border-radius: 10px;
+            margin-bottom: 24px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .ga-auth-alert-error {
+            background: #FEF2F2;
+            color: #DC2626;
+            border: 1px solid #FECACA;
+        }
+
+        .ga-auth-alert-success {
+            background: #F0FDF4;
+            color: #16A34A;
+            border: 1px solid #BBF7D0;
+        }
+
+        .ga-auth-alert .dashicons {
+            font-size: 20px;
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+
+        /* ============================================================
+           FORMULARIO
+           ============================================================ */
+        .ga-auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .ga-auth-field {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .ga-auth-label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: <?php echo esc_attr($color_dark); ?>;
+        }
+
+        .ga-auth-input {
+            width: 100%;
+            padding: 14px 16px;
+            font-size: 1rem;
+            color: <?php echo esc_attr($color_dark); ?>;
+            background: #F9FAFB;
+            border: 2px solid #E5E7EB;
+            border-radius: 10px;
+            transition: all 0.2s ease;
+            outline: none;
+        }
+
+        .ga-auth-input:focus {
+            background: #ffffff;
+            border-color: <?php echo esc_attr($color_primary); ?>;
+            box-shadow: 0 0 0 4px <?php echo esc_attr($color_primary); ?>1A;
+        }
+
+        .ga-auth-input::placeholder {
+            color: #9CA3AF;
+        }
+
+        /* Checkbox recordar */
+        .ga-auth-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .ga-auth-remember {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: #6B7280;
+        }
+
+        .ga-auth-remember input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: <?php echo esc_attr($color_primary); ?>;
+            cursor: pointer;
+        }
+
+        .ga-auth-forgot {
+            font-size: 0.9rem;
+            color: <?php echo esc_attr($color_primary); ?>;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .ga-auth-forgot:hover {
+            color: <?php echo esc_attr($color_dark); ?>;
+            text-decoration: underline;
+        }
+
+        /* Botón submit */
+        .ga-auth-submit {
+            width: 100%;
+            padding: 16px 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #ffffff;
+            background: <?php echo esc_attr($color_primary); ?>;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-top: 8px;
+        }
+
+        .ga-auth-submit:hover {
+            background: <?php echo esc_attr($color_dark); ?>;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px <?php echo esc_attr($color_primary); ?>40;
+        }
+
+        .ga-auth-submit:active {
+            transform: translateY(0);
+        }
+
+        /* ============================================================
+           FOOTER
+           ============================================================ */
+        .ga-auth-footer {
+            padding: 24px 40px;
+            background: #F9FAFB;
+            border-top: 1px solid #E5E7EB;
+            text-align: center;
+        }
+
+        .ga-auth-footer-text {
+            font-size: 0.9rem;
+            color: #6B7280;
+        }
+
+        .ga-auth-footer-link {
+            color: <?php echo esc_attr($color_primary); ?>;
+            text-decoration: none;
+            font-weight: 600;
+            margin-left: 4px;
+        }
+
+        .ga-auth-footer-link:hover {
+            text-decoration: underline;
+        }
+
+        /* ============================================================
+           ENLACE VOLVER
+           ============================================================ */
+        .ga-auth-back {
+            display: flex;
+            justify-content: center;
+            margin-top: 24px;
+        }
+
+        .ga-auth-back a {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .ga-auth-back a:hover {
+            color: #ffffff;
+        }
+
+        .ga-auth-back .dashicons {
+            font-size: 16px;
+            width: 16px;
+            height: 16px;
+        }
+
+        /* ============================================================
+           RESPONSIVE
+           ============================================================ */
+        @media (max-width: 480px) {
+            body.ga-login-body {
+                padding: 16px;
+            }
+
+            .ga-auth-header {
+                padding: 24px;
+            }
+
+            .ga-auth-body {
+                padding: 24px;
+            }
+
+            .ga-auth-footer {
+                padding: 20px 24px;
+            }
+
+            .ga-auth-title {
+                font-size: 1.25rem;
+            }
+
+            .ga-auth-options {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+
+        /* Ocultar elementos de WordPress si aparecen */
+        #wpadminbar {
+            display: none !important;
+        }
+
+        html {
+            margin-top: 0 !important;
+        }
+    </style>
+</head>
+<body class="ga-login-body">
+    <?php wp_body_open(); ?>
+
+    <div class="ga-auth-wrapper">
+        <div class="ga-auth-card">
+            <!-- Header con Logo -->
+            <div class="ga-auth-header">
+                <div class="ga-auth-logo">
+                    <?php if (!empty($logo_url)) : ?>
+                        <img src="<?php echo esc_url($logo_url); ?>" alt="<?php echo esc_attr($company_name); ?>">
+                    <?php else : ?>
+                        <span class="ga-auth-logo-text"><?php echo esc_html($company_name); ?></span>
+                    <?php endif; ?>
                 </div>
+            </div>
+
+            <!-- Cuerpo del formulario -->
+            <div class="ga-auth-body">
+                <h1 class="ga-auth-title"><?php esc_html_e('Bienvenido', 'gestionadmin-wolk'); ?></h1>
+                <p class="ga-auth-subtitle"><?php esc_html_e('Ingresa tus credenciales para continuar', 'gestionadmin-wolk'); ?></p>
 
                 <?php if ($error_message) : ?>
-                    <div class="ga-alert ga-alert-error">
+                    <div class="ga-auth-alert ga-auth-alert-error">
                         <span class="dashicons dashicons-warning"></span>
-                        <?php echo esc_html($error_message); ?>
+                        <span><?php echo esc_html($error_message); ?></span>
                     </div>
                 <?php endif; ?>
 
-                <form method="post" class="ga-login-form">
+                <?php if ($success_message) : ?>
+                    <div class="ga-auth-alert ga-auth-alert-success">
+                        <span class="dashicons dashicons-yes-alt"></span>
+                        <span><?php echo esc_html($success_message); ?></span>
+                    </div>
+                <?php endif; ?>
+
+                <form method="post" class="ga-auth-form">
                     <?php wp_nonce_field('ga_login_action', 'ga_login_nonce'); ?>
 
-                    <div class="ga-form-group">
-                        <label for="user_login"><?php esc_html_e('Usuario o Email', 'gestionadmin-wolk'); ?></label>
-                        <input type="text" id="user_login" name="user_login"
-                               class="ga-form-input" required autocomplete="username"
+                    <div class="ga-auth-field">
+                        <label class="ga-auth-label" for="user_login">
+                            <?php esc_html_e('Usuario o Email', 'gestionadmin-wolk'); ?>
+                        </label>
+                        <input type="text"
+                               id="user_login"
+                               name="user_login"
+                               class="ga-auth-input"
+                               placeholder="<?php esc_attr_e('nombre@ejemplo.com', 'gestionadmin-wolk'); ?>"
+                               required
+                               autocomplete="username"
                                value="<?php echo isset($_POST['user_login']) ? esc_attr($_POST['user_login']) : ''; ?>">
                     </div>
 
-                    <div class="ga-form-group">
-                        <label for="user_password"><?php esc_html_e('Contraseña', 'gestionadmin-wolk'); ?></label>
-                        <input type="password" id="user_password" name="user_password"
-                               class="ga-form-input" required autocomplete="current-password">
+                    <div class="ga-auth-field">
+                        <label class="ga-auth-label" for="user_password">
+                            <?php esc_html_e('Contraseña', 'gestionadmin-wolk'); ?>
+                        </label>
+                        <input type="password"
+                               id="user_password"
+                               name="user_password"
+                               class="ga-auth-input"
+                               placeholder="<?php esc_attr_e('Tu contraseña', 'gestionadmin-wolk'); ?>"
+                               required
+                               autocomplete="current-password">
                     </div>
 
-                    <div class="ga-form-group ga-form-checkbox">
-                        <label>
+                    <div class="ga-auth-options">
+                        <label class="ga-auth-remember">
                             <input type="checkbox" name="remember" value="1">
                             <?php esc_html_e('Recordarme', 'gestionadmin-wolk'); ?>
                         </label>
+                        <a href="<?php echo esc_url(wp_lostpassword_url()); ?>" class="ga-auth-forgot">
+                            <?php esc_html_e('¿Olvidaste tu contraseña?', 'gestionadmin-wolk'); ?>
+                        </a>
                     </div>
 
-                    <button type="submit" class="ga-btn ga-btn-primary ga-btn-block">
+                    <button type="submit" class="ga-auth-submit">
                         <?php esc_html_e('Iniciar Sesión', 'gestionadmin-wolk'); ?>
                     </button>
                 </form>
-
-                <div class="ga-login-footer">
-                    <a href="<?php echo esc_url(wp_lostpassword_url()); ?>">
-                        <?php esc_html_e('¿Olvidaste tu contraseña?', 'gestionadmin-wolk'); ?>
-                    </a>
-                </div>
-
-                <div class="ga-login-divider">
-                    <span><?php esc_html_e('o', 'gestionadmin-wolk'); ?></span>
-                </div>
-
-                <div class="ga-login-register">
-                    <p><?php esc_html_e('¿Eres freelancer o empresa?', 'gestionadmin-wolk'); ?></p>
-                    <a href="<?php echo esc_url(home_url('/registro-aplicante/')); ?>" class="ga-btn ga-btn-outline ga-btn-block">
-                        <?php esc_html_e('Regístrate como Aplicante', 'gestionadmin-wolk'); ?>
-                    </a>
-                </div>
             </div>
 
-            <div class="ga-login-info">
-                <h2><?php esc_html_e('GestionAdmin', 'gestionadmin-wolk'); ?></h2>
-                <p><?php esc_html_e('Sistema integral de gestión empresarial', 'gestionadmin-wolk'); ?></p>
-
-                <ul class="ga-login-features">
-                    <li>
-                        <span class="dashicons dashicons-yes-alt"></span>
-                        <?php esc_html_e('Marketplace de trabajo', 'gestionadmin-wolk'); ?>
-                    </li>
-                    <li>
-                        <span class="dashicons dashicons-yes-alt"></span>
-                        <?php esc_html_e('Gestión de proyectos', 'gestionadmin-wolk'); ?>
-                    </li>
-                    <li>
-                        <span class="dashicons dashicons-yes-alt"></span>
-                        <?php esc_html_e('Control de horas', 'gestionadmin-wolk'); ?>
-                    </li>
-                    <li>
-                        <span class="dashicons dashicons-yes-alt"></span>
-                        <?php esc_html_e('Facturación multi-país', 'gestionadmin-wolk'); ?>
-                    </li>
-                </ul>
-
-                <p class="ga-login-credit">
-                    <?php esc_html_e('Diseñado y desarrollado por', 'gestionadmin-wolk'); ?>
-                    <a href="https://wolksoftcr.com" target="_blank">Wolksoftcr.com</a>
+            <!-- Footer -->
+            <div class="ga-auth-footer">
+                <p class="ga-auth-footer-text">
+                    <?php esc_html_e('¿No tienes cuenta?', 'gestionadmin-wolk'); ?>
+                    <a href="<?php echo esc_url(home_url('/registro-aplicante/')); ?>" class="ga-auth-footer-link">
+                        <?php esc_html_e('Regístrate aquí', 'gestionadmin-wolk'); ?>
+                    </a>
                 </p>
             </div>
         </div>
+
+        <!-- Enlace volver -->
+        <div class="ga-auth-back">
+            <a href="<?php echo esc_url(home_url('/')); ?>">
+                <span class="dashicons dashicons-arrow-left-alt2"></span>
+                <?php esc_html_e('Volver al inicio', 'gestionadmin-wolk'); ?>
+            </a>
+        </div>
     </div>
-</div>
 
-<style>
-.ga-login-page {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    padding: 40px 20px;
-}
-.ga-login-wrapper {
-    display: flex;
-    gap: 40px;
-    max-width: 900px;
-    margin: 0 auto;
-    width: 100%;
-}
-.ga-login-card {
-    background: #fff;
-    border-radius: 12px;
-    padding: 40px;
-    flex: 1;
-    max-width: 400px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-}
-.ga-login-header {
-    text-align: center;
-    margin-bottom: 30px;
-}
-.ga-login-header h1 {
-    font-size: 24px;
-    margin: 0 0 10px 0;
-    color: #1a1a2e;
-}
-.ga-login-header p {
-    color: #666;
-    margin: 0;
-}
-.ga-login-form .ga-form-group {
-    margin-bottom: 20px;
-}
-.ga-login-form label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 500;
-    color: #333;
-}
-.ga-login-form .ga-form-input {
-    width: 100%;
-    padding: 12px 15px;
-    border: 2px solid #e1e5eb;
-    border-radius: 8px;
-    font-size: 16px;
-    transition: border-color 0.3s;
-}
-.ga-login-form .ga-form-input:focus {
-    outline: none;
-    border-color: #667eea;
-}
-.ga-form-checkbox label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-}
-.ga-btn-block {
-    display: block;
-    width: 100%;
-    text-align: center;
-}
-.ga-login-footer {
-    text-align: center;
-    margin-top: 20px;
-}
-.ga-login-footer a {
-    color: #667eea;
-    text-decoration: none;
-}
-.ga-login-divider {
-    position: relative;
-    text-align: center;
-    margin: 25px 0;
-}
-.ga-login-divider::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 50%;
-    width: 100%;
-    height: 1px;
-    background: #e1e5eb;
-}
-.ga-login-divider span {
-    background: #fff;
-    padding: 0 15px;
-    position: relative;
-    color: #999;
-}
-.ga-login-register {
-    text-align: center;
-}
-.ga-login-register p {
-    margin-bottom: 15px;
-    color: #666;
-}
-.ga-login-info {
-    flex: 1;
-    color: #fff;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}
-.ga-login-info h2 {
-    font-size: 32px;
-    margin: 0 0 10px 0;
-}
-.ga-login-info > p {
-    font-size: 18px;
-    opacity: 0.9;
-    margin-bottom: 30px;
-}
-.ga-login-features {
-    list-style: none;
-    padding: 0;
-    margin: 0 0 30px 0;
-}
-.ga-login-features li {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 0;
-    font-size: 16px;
-}
-.ga-login-features .dashicons {
-    color: #90EE90;
-}
-.ga-login-credit {
-    font-size: 14px;
-    opacity: 0.8;
-}
-.ga-login-credit a {
-    color: #fff;
-    text-decoration: underline;
-}
-@media (max-width: 768px) {
-    .ga-login-wrapper {
-        flex-direction: column-reverse;
-    }
-    .ga-login-card {
-        max-width: 100%;
-    }
-    .ga-login-info {
-        text-align: center;
-    }
-    .ga-login-features {
-        display: inline-block;
-        text-align: left;
-    }
-}
-</style>
-
-<?php get_footer(); ?>
+    <?php wp_footer(); ?>
+</body>
+</html>

@@ -4,12 +4,14 @@
  *
  * Muestra todos los detalles de una orden de trabajo específica.
  * Incluye botón para aplicar si el usuario está verificado.
+ * Integrado con tema GestionAdmin Theme.
  *
  * URL: /trabajo/{codigo}/
  *
  * @package    GestionAdmin_Wolk
  * @subpackage Templates/PortalTrabajo
  * @since      1.3.0
+ * @updated    1.6.0 - Integración con tema
  */
 
 if (!defined('ABSPATH')) {
@@ -77,7 +79,11 @@ $tiempo = human_time_diff(strtotime($orden->created_at), current_time('timestamp
 // Número de aplicaciones
 $num_apps = GA_Ordenes_Trabajo::count_aplicaciones($orden->id);
 
+// Usar header del tema (o fallback del plugin si no está activo)
 get_header();
+
+// Imprimir estilos del portal (heredan colores del tema si está activo)
+GA_Theme_Integration::print_portal_styles();
 ?>
 
 <div class="ga-public-container">

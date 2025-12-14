@@ -120,7 +120,11 @@ $solicitudes = $solicitudes_module->get_por_aplicante($aplicante->id, array('per
 $estados_solicitud = GA_Solicitudes_Cobro::get_estados();
 $metodos_pago = GA_Solicitudes_Cobro::get_metodos_pago();
 
+// Usar header del tema (o fallback del plugin si no está activo)
 get_header();
+
+// Imprimir estilos del portal (heredan colores del tema si está activo)
+GA_Theme_Integration::print_portal_styles();
 ?>
 
 <div class="ga-public-container ga-portal-aplicante ga-portal-pagos">

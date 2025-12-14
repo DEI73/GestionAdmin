@@ -4,10 +4,12 @@
  *
  * Dashboard principal del cliente.
  * Muestra resumen de casos, proyectos, facturas y accesos rápidos.
+ * Integrado con tema GestionAdmin Theme.
  *
  * @package    GestionAdmin_Wolk
  * @subpackage Templates/PortalCliente
  * @since      1.3.0
+ * @updated    1.6.0 - Integración con tema
  * @author     Wolksoftcr.com
  */
 
@@ -24,7 +26,11 @@ if (!is_user_logged_in()) {
 // TODO: Verificar que el usuario es un cliente
 // $cliente = GA_Clientes::get_by_wp_user(get_current_user_id());
 
+// Usar header del tema (o fallback del plugin si no está activo)
 get_header();
+
+// Imprimir estilos del portal (heredan colores del tema si está activo)
+GA_Theme_Integration::print_portal_styles();
 ?>
 
 <div class="ga-public-container ga-portal-cliente">

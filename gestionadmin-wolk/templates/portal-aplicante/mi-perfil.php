@@ -95,7 +95,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ga_perfil_nonce'])) {
     }
 }
 
+// Usar header del tema (o fallback del plugin si no está activo)
 get_header();
+
+// Imprimir estilos del portal (heredan colores del tema si está activo)
+GA_Theme_Integration::print_portal_styles();
 ?>
 
 <div class="ga-public-container ga-perfil-page">

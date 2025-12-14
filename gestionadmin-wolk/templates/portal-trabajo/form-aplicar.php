@@ -3,12 +3,14 @@
  * Template: Formulario de Aplicación a Orden de Trabajo
  *
  * Permite a aplicantes verificados enviar su postulación.
+ * Integrado con tema GestionAdmin Theme.
  *
  * URL: /trabajo/{codigo}/aplicar/
  *
  * @package    GestionAdmin_Wolk
  * @subpackage Templates/PortalTrabajo
  * @since      1.3.0
+ * @updated    1.6.0 - Integración con tema
  */
 
 if (!defined('ABSPATH')) {
@@ -68,7 +70,11 @@ if ($orden->presupuesto_min && $orden->presupuesto_max) {
     $presupuesto = 'Desde $' . number_format($orden->presupuesto_min, 0);
 }
 
+// Usar header del tema (o fallback del plugin si no está activo)
 get_header();
+
+// Imprimir estilos del portal (heredan colores del tema si está activo)
+GA_Theme_Integration::print_portal_styles();
 ?>
 
 <div class="ga-public-container">

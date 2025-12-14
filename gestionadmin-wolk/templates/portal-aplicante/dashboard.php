@@ -3,12 +3,14 @@
  * Template: Dashboard del Aplicante
  *
  * Panel principal del aplicante con resumen de actividad.
+ * Integrado con tema GestionAdmin Theme.
  *
  * URL: /mi-cuenta/
  *
  * @package    GestionAdmin_Wolk
  * @subpackage Templates/PortalAplicante
  * @since      1.3.0
+ * @updated    1.6.0 - Integración con tema
  */
 
 if (!defined('ABSPATH')) {
@@ -42,7 +44,11 @@ $ordenes_nuevas = GA_Ordenes_Trabajo::get_recientes(3, true);
 // Estados
 $estados_aplicacion = GA_Aplicaciones::get_estados();
 
+// Usar header del tema (o fallback del plugin si no está activo)
 get_header();
+
+// Imprimir estilos del portal (heredan colores del tema si está activo)
+GA_Theme_Integration::print_portal_styles();
 ?>
 
 <div class="ga-public-container ga-dashboard">
