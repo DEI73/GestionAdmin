@@ -65,6 +65,22 @@ class GA_Clientes {
     }
 
     /**
+     * Obtener un cliente por usuario WP ID
+     *
+     * @param int $wp_user_id ID de usuario de WordPress
+     * @return object|null Objeto cliente o null si no existe
+     */
+    public static function get_by_wp_id($wp_user_id) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'ga_clientes';
+
+        return $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$table} WHERE usuario_wp_id = %d",
+            $wp_user_id
+        ));
+    }
+
+    /**
      * Obtener cliente por código
      *
      * @param string $codigo Código del cliente (CLI-XXX)
