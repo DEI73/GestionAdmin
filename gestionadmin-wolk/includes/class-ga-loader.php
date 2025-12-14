@@ -76,6 +76,10 @@ class GA_Loader {
         require_once GA_PLUGIN_DIR . 'includes/class-ga-access-control.php';
         GA_Access_Control::get_instance();
 
+        // Cargar Timer REST API (disponible en frontend y admin)
+        require_once GA_PLUGIN_DIR . 'api/class-ga-timer-api.php';
+        GA_Timer_API::get_instance();
+
         // Cargar clase de administración (carga todos los módulos y menús)
         if (is_admin()) {
             require_once GA_PLUGIN_DIR . 'admin/class-ga-admin.php';
