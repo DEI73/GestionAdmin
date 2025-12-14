@@ -552,12 +552,17 @@ class GA_Emails {
     public static function send_nueva_orden($email, $nombre, $orden) {
         $subject = sprintf(__('Nueva oportunidad: %s', 'gestionadmin-wolk'), $orden->titulo);
 
-        // Formatear presupuesto
+        // Formatear presupuesto según tipo de pago
         $presupuesto = '';
-        if ($orden->presupuesto_min && $orden->presupuesto_max) {
-            $presupuesto = '$' . number_format($orden->presupuesto_min, 0) . ' - $' . number_format($orden->presupuesto_max, 0);
-        } elseif ($orden->presupuesto_max) {
-            $presupuesto = __('Hasta', 'gestionadmin-wolk') . ' $' . number_format($orden->presupuesto_max, 0);
+        $tipo_pago = $orden->tipo_pago ?? '';
+        if ($tipo_pago === 'PRECIO_FIJO' && !empty($orden->presupuesto_fijo) && $orden->presupuesto_fijo > 0) {
+            $presupuesto = '$' . number_format($orden->presupuesto_fijo, 0);
+        } elseif (!empty($orden->tarifa_hora_min) && !empty($orden->tarifa_hora_max)) {
+            $presupuesto = '$' . number_format($orden->tarifa_hora_min, 0) . ' - $' . number_format($orden->tarifa_hora_max, 0) . '/hr';
+        } elseif (!empty($orden->tarifa_hora_max)) {
+            $presupuesto = __('Hasta', 'gestionadmin-wolk') . ' $' . number_format($orden->tarifa_hora_max, 0) . '/hr';
+        } elseif (!empty($orden->tarifa_hora_min)) {
+            $presupuesto = __('Desde', 'gestionadmin-wolk') . ' $' . number_format($orden->tarifa_hora_min, 0) . '/hr';
         } else {
             $presupuesto = __('A convenir', 'gestionadmin-wolk');
         }

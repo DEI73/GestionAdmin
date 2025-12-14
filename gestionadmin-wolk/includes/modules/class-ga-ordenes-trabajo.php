@@ -277,7 +277,7 @@ class GA_Ordenes_Trabajo {
         // Campos permitidos para ordenar (seguridad contra SQL injection)
         $allowed_orderby = array(
             'id', 'codigo', 'titulo', 'categoria', 'tipo_pago', 'estado',
-            'prioridad', 'presupuesto_min', 'presupuesto_max',
+            'prioridad', 'tarifa_hora_min', 'tarifa_hora_max', 'presupuesto_fijo',
             'fecha_limite_aplicacion', 'fecha_inicio_estimada',
             'created_at', 'updated_at'
         );
@@ -456,8 +456,9 @@ class GA_Ordenes_Trabajo {
             'descripcion'             => isset($data['descripcion']) ? wp_kses_post($data['descripcion']) : '',
             'categoria'               => isset($data['categoria']) ? sanitize_text_field($data['categoria']) : 'OTRO',
             'tipo_pago'               => isset($data['tipo_pago']) ? sanitize_text_field($data['tipo_pago']) : 'A_CONVENIR',
-            'presupuesto_min'         => isset($data['presupuesto_min']) ? floatval($data['presupuesto_min']) : null,
-            'presupuesto_max'         => isset($data['presupuesto_max']) ? floatval($data['presupuesto_max']) : null,
+            'tarifa_hora_min'         => isset($data['tarifa_hora_min']) ? floatval($data['tarifa_hora_min']) : null,
+            'tarifa_hora_max'         => isset($data['tarifa_hora_max']) ? floatval($data['tarifa_hora_max']) : null,
+            'presupuesto_fijo'        => isset($data['presupuesto_fijo']) ? floatval($data['presupuesto_fijo']) : null,
             'modalidad'               => isset($data['modalidad']) ? sanitize_text_field($data['modalidad']) : 'REMOTO',
             'ubicacion_requerida'     => isset($data['ubicacion_requerida']) ? sanitize_text_field($data['ubicacion_requerida']) : '',
             'nivel_experiencia'       => isset($data['nivel_experiencia']) ? sanitize_text_field($data['nivel_experiencia']) : 'CUALQUIERA',
@@ -476,7 +477,7 @@ class GA_Ordenes_Trabajo {
         );
 
         $format = array(
-            '%s', '%s', '%s', '%s', '%f', '%f', '%s', '%s', '%s', '%s',
+            '%s', '%s', '%s', '%s', '%f', '%f', '%f', '%s', '%s', '%s', '%s',
             '%s', '%s', '%s', '%d', '%s', '%s', '%d', '%d', '%d', '%d', '%s'
         );
 

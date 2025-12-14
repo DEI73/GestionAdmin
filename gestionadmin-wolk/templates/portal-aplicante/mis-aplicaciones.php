@@ -228,11 +228,13 @@ $sql = "SELECT a.*,
                o.titulo as orden_titulo,
                o.descripcion as orden_descripcion,
                o.categoria as orden_categoria,
-               o.presupuesto_min,
-               o.presupuesto_max,
+               o.tarifa_hora_min,
+               o.tarifa_hora_max,
+               o.presupuesto_fijo,
+               o.tipo_pago,
                o.estado as orden_estado
         FROM {$table_aplicaciones} a
-        LEFT JOIN {$table_ordenes} o ON a.orden_id = o.id
+        LEFT JOIN {$table_ordenes} o ON a.orden_trabajo_id = o.id
         WHERE a.aplicante_id = %d";
 
 $params = array($aplicante->id);
@@ -530,8 +532,20 @@ GA_Theme_Integration::print_portal_styles();
                                     <div class="ga-meta-content">
                                         <span class="ga-meta-label"><?php esc_html_e('Presupuesto Orden', 'gestionadmin-wolk'); ?></span>
                                         <span class="ga-meta-value">
-                                            <?php if ($app->presupuesto_max > 0): ?>
-                                                $<?php echo esc_html(number_format($app->presupuesto_max, 0)); ?>
+                                            <?php
+                                            // Formatear presupuesto según tipo de pago
+                                            $presupuesto_mostrar = '';
+                                            if ($app->tipo_pago === 'PRECIO_FIJO' && $app->presupuesto_fijo > 0) {
+                                                $presupuesto_mostrar = '$' . number_format($app->presupuesto_fijo, 0);
+                                            } elseif ($app->tarifa_hora_min > 0 && $app->tarifa_hora_max > 0) {
+                                                $presupuesto_mostrar = '$' . number_format($app->tarifa_hora_min, 0) . ' - $' . number_format($app->tarifa_hora_max, 0) . '/hr';
+                                            } elseif ($app->tarifa_hora_max > 0) {
+                                                $presupuesto_mostrar = __('Hasta', 'gestionadmin-wolk') . ' $' . number_format($app->tarifa_hora_max, 0) . '/hr';
+                                            } elseif ($app->tarifa_hora_min > 0) {
+                                                $presupuesto_mostrar = __('Desde', 'gestionadmin-wolk') . ' $' . number_format($app->tarifa_hora_min, 0) . '/hr';
+                                            }
+                                            if ($presupuesto_mostrar): ?>
+                                                <?php echo esc_html($presupuesto_mostrar); ?>
                                             <?php else: ?>
                                                 <?php esc_html_e('A convenir', 'gestionadmin-wolk'); ?>
                                             <?php endif; ?>

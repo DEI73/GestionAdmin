@@ -169,13 +169,17 @@ $prioridades = GA_Ordenes_Trabajo::get_prioridades();
                 <?php else : ?>
                     <?php foreach ($ordenes as $orden) :
                         $num_aplicaciones = GA_Ordenes_Trabajo::count_aplicaciones($orden->id);
+                        // Formatear presupuesto según tipo de pago
                         $presupuesto = '';
-                        if ($orden->presupuesto_min && $orden->presupuesto_max) {
-                            $presupuesto = '$' . number_format($orden->presupuesto_min, 0) . ' - $' . number_format($orden->presupuesto_max, 0);
-                        } elseif ($orden->presupuesto_max) {
-                            $presupuesto = 'Hasta $' . number_format($orden->presupuesto_max, 0);
-                        } elseif ($orden->presupuesto_min) {
-                            $presupuesto = 'Desde $' . number_format($orden->presupuesto_min, 0);
+                        $tipo_pago_ord = $orden->tipo_pago ?? '';
+                        if ($tipo_pago_ord === 'PRECIO_FIJO' && !empty($orden->presupuesto_fijo) && $orden->presupuesto_fijo > 0) {
+                            $presupuesto = '$' . number_format($orden->presupuesto_fijo, 0);
+                        } elseif (!empty($orden->tarifa_hora_min) && !empty($orden->tarifa_hora_max)) {
+                            $presupuesto = '$' . number_format($orden->tarifa_hora_min, 0) . ' - $' . number_format($orden->tarifa_hora_max, 0) . '/hr';
+                        } elseif (!empty($orden->tarifa_hora_max)) {
+                            $presupuesto = 'Hasta $' . number_format($orden->tarifa_hora_max, 0) . '/hr';
+                        } elseif (!empty($orden->tarifa_hora_min)) {
+                            $presupuesto = 'Desde $' . number_format($orden->tarifa_hora_min, 0) . '/hr';
                         } else {
                             $presupuesto = __('A convenir', 'gestionadmin-wolk');
                         }
@@ -376,20 +380,32 @@ $prioridades = GA_Ordenes_Trabajo::get_prioridades();
                         </div>
                         <div class="ga-col ga-col-4">
                             <div class="ga-form-group">
-                                <label class="ga-form-label" for="orden-presupuesto-min">
-                                    <?php esc_html_e('Presupuesto Mínimo (USD)', 'gestionadmin-wolk'); ?>
+                                <label class="ga-form-label" for="orden-tarifa-hora-min">
+                                    <?php esc_html_e('Tarifa Mínima/Hora (USD)', 'gestionadmin-wolk'); ?>
                                 </label>
-                                <input type="number" id="orden-presupuesto-min" name="presupuesto_min"
+                                <input type="number" id="orden-tarifa-hora-min" name="tarifa_hora_min"
                                        class="ga-form-input" min="0" step="0.01" placeholder="0.00">
                             </div>
                         </div>
                         <div class="ga-col ga-col-4">
                             <div class="ga-form-group">
-                                <label class="ga-form-label" for="orden-presupuesto-max">
-                                    <?php esc_html_e('Presupuesto Máximo (USD)', 'gestionadmin-wolk'); ?>
+                                <label class="ga-form-label" for="orden-tarifa-hora-max">
+                                    <?php esc_html_e('Tarifa Máxima/Hora (USD)', 'gestionadmin-wolk'); ?>
                                 </label>
-                                <input type="number" id="orden-presupuesto-max" name="presupuesto_max"
+                                <input type="number" id="orden-tarifa-hora-max" name="tarifa_hora_max"
                                        class="ga-form-input" min="0" step="0.01" placeholder="0.00">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ga-row">
+                        <div class="ga-col ga-col-4">
+                            <div class="ga-form-group">
+                                <label class="ga-form-label" for="orden-presupuesto-fijo">
+                                    <?php esc_html_e('Presupuesto Fijo (USD)', 'gestionadmin-wolk'); ?>
+                                </label>
+                                <input type="number" id="orden-presupuesto-fijo" name="presupuesto_fijo"
+                                       class="ga-form-input" min="0" step="0.01" placeholder="0.00">
+                                <small class="ga-form-help"><?php esc_html_e('Solo para tipo de pago "Precio Fijo"', 'gestionadmin-wolk'); ?></small>
                             </div>
                         </div>
                     </div>
@@ -642,8 +658,9 @@ jQuery(document).ready(function($) {
             'descripcion'             => $o->descripcion,
             'categoria'               => $o->categoria,
             'tipo_pago'               => $o->tipo_pago,
-            'presupuesto_min'         => $o->presupuesto_min,
-            'presupuesto_max'         => $o->presupuesto_max,
+            'tarifa_hora_min'         => $o->tarifa_hora_min,
+            'tarifa_hora_max'         => $o->tarifa_hora_max,
+            'presupuesto_fijo'        => $o->presupuesto_fijo,
             'modalidad'               => $o->modalidad,
             'ubicacion_requerida'     => $o->ubicacion_requerida,
             'nivel_experiencia'       => $o->nivel_experiencia,
@@ -722,8 +739,9 @@ jQuery(document).ready(function($) {
         $('#orden-modalidad').val(o.modalidad);
         $('#orden-prioridad').val(o.prioridad);
         $('#orden-tipo-pago').val(o.tipo_pago);
-        $('#orden-presupuesto-min').val(o.presupuesto_min);
-        $('#orden-presupuesto-max').val(o.presupuesto_max);
+        $('#orden-tarifa-hora-min').val(o.tarifa_hora_min);
+        $('#orden-tarifa-hora-max').val(o.tarifa_hora_max);
+        $('#orden-presupuesto-fijo').val(o.presupuesto_fijo);
         $('#orden-nivel-experiencia').val(o.nivel_experiencia);
         $('#orden-ubicacion').val(o.ubicacion_requerida);
         $('#orden-requisitos-adicionales').val(o.requisitos_adicionales);
@@ -1134,8 +1152,9 @@ jQuery(document).ready(function($) {
             modalidad: $('#orden-modalidad').val(),
             prioridad: $('#orden-prioridad').val(),
             tipo_pago: $('#orden-tipo-pago').val(),
-            presupuesto_min: $('#orden-presupuesto-min').val(),
-            presupuesto_max: $('#orden-presupuesto-max').val(),
+            tarifa_hora_min: $('#orden-tarifa-hora-min').val(),
+            tarifa_hora_max: $('#orden-tarifa-hora-max').val(),
+            presupuesto_fijo: $('#orden-presupuesto-fijo').val(),
             nivel_experiencia: $('#orden-nivel-experiencia').val(),
             ubicacion_requerida: $('#orden-ubicacion').val(),
             habilidades_requeridas: JSON.stringify(habilidades),

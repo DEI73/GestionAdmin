@@ -522,9 +522,9 @@ $rechazadas = (int) $wpdb->get_var($wpdb->prepare(
 // Estas son las que estan pendientes de respuesta del empleador
 // =========================================================================
 $aplicaciones_revision = $wpdb->get_results($wpdb->prepare(
-    "SELECT a.*, o.codigo as orden_codigo, o.titulo as orden_titulo, o.presupuesto_max
+    "SELECT a.*, o.codigo as orden_codigo, o.titulo as orden_titulo, o.tarifa_hora_max, o.presupuesto_fijo, o.tipo_pago
      FROM {$table_aplicaciones} a
-     LEFT JOIN {$table_ordenes} o ON a.orden_id = o.id
+     LEFT JOIN {$table_ordenes} o ON a.orden_trabajo_id = o.id
      WHERE a.aplicante_id = %d AND a.estado = 'EN_REVISION'
      ORDER BY a.created_at DESC
      LIMIT 5",
@@ -565,7 +565,7 @@ if (!empty($habilidades_aplicante)) {
             WHERE o.estado = 'PUBLICADA'
             AND {$where_habilidades}
             AND o.id NOT IN (
-                SELECT orden_id FROM {$table_aplicaciones} WHERE aplicante_id = %d
+                SELECT orden_trabajo_id FROM {$table_aplicaciones} WHERE aplicante_id = %d
             )
             ORDER BY o.created_at DESC
             LIMIT 3";
@@ -591,7 +591,7 @@ if (count($ordenes_recomendadas) < 3) {
          FROM {$table_ordenes} o
          WHERE o.estado = 'PUBLICADA'
          AND o.id NOT IN (
-             SELECT orden_id FROM {$table_aplicaciones} WHERE aplicante_id = %d
+             SELECT orden_trabajo_id FROM {$table_aplicaciones} WHERE aplicante_id = %d
          )
          ORDER BY o.created_at DESC
          LIMIT %d",
@@ -874,10 +874,18 @@ GA_Theme_Integration::print_portal_styles();
                                 </div>
                                 <h3 class="ga-application-title"><?php echo esc_html($app->orden_titulo); ?></h3>
                                 <div class="ga-application-meta">
-                                    <?php if ($app->presupuesto_max > 0): ?>
+                                    <?php
+                                    // Formatear presupuesto según tipo de pago
+                                    $presupuesto_app = '';
+                                    if ($app->tipo_pago === 'PRECIO_FIJO' && $app->presupuesto_fijo > 0) {
+                                        $presupuesto_app = '$' . number_format($app->presupuesto_fijo, 0);
+                                    } elseif ($app->tarifa_hora_max > 0) {
+                                        $presupuesto_app = '$' . number_format($app->tarifa_hora_max, 0) . '/hr';
+                                    }
+                                    if ($presupuesto_app): ?>
                                     <span class="ga-meta-budget">
                                         <span class="dashicons dashicons-money-alt"></span>
-                                        $<?php echo esc_html(number_format($app->presupuesto_max, 0)); ?>
+                                        <?php echo esc_html($presupuesto_app); ?>
                                     </span>
                                     <?php endif; ?>
                                     <span class="ga-meta-date">
@@ -948,8 +956,19 @@ GA_Theme_Integration::print_portal_styles();
                                 <?php endif; ?>
                                 <div class="ga-order-footer">
                                     <div class="ga-order-budget">
-                                        <?php if ($orden->presupuesto_max > 0): ?>
-                                        <span class="ga-budget-value">$<?php echo esc_html(number_format($orden->presupuesto_max, 0)); ?></span>
+                                        <?php
+                                        // Formatear presupuesto según tipo de pago
+                                        $presupuesto_orden = '';
+                                        $tipo_pago_ord = $orden->tipo_pago ?? '';
+                                        if ($tipo_pago_ord === 'PRECIO_FIJO' && !empty($orden->presupuesto_fijo) && $orden->presupuesto_fijo > 0) {
+                                            $presupuesto_orden = '$' . number_format($orden->presupuesto_fijo, 0);
+                                        } elseif (!empty($orden->tarifa_hora_max) && $orden->tarifa_hora_max > 0) {
+                                            $presupuesto_orden = '$' . number_format($orden->tarifa_hora_max, 0) . '/hr';
+                                        } elseif (!empty($orden->tarifa_hora_min) && $orden->tarifa_hora_min > 0) {
+                                            $presupuesto_orden = __('Desde', 'gestionadmin-wolk') . ' $' . number_format($orden->tarifa_hora_min, 0) . '/hr';
+                                        }
+                                        if ($presupuesto_orden): ?>
+                                        <span class="ga-budget-value"><?php echo esc_html($presupuesto_orden); ?></span>
                                         <span class="ga-budget-label"><?php esc_html_e('Presupuesto', 'gestionadmin-wolk'); ?></span>
                                         <?php else: ?>
                                         <span class="ga-budget-value"><?php esc_html_e('A convenir', 'gestionadmin-wolk'); ?></span>
