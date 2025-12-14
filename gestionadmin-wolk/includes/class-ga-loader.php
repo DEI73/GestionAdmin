@@ -72,6 +72,10 @@ class GA_Loader {
         require_once GA_PLUGIN_DIR . 'includes/class-ga-notificaciones.php';
         GA_Notificaciones::get_instance();
 
+        // Cargar control de acceso (bloquea wp-admin para roles restringidos)
+        require_once GA_PLUGIN_DIR . 'includes/class-ga-access-control.php';
+        GA_Access_Control::get_instance();
+
         // Cargar clase de administración (carga todos los módulos y menús)
         if (is_admin()) {
             require_once GA_PLUGIN_DIR . 'admin/class-ga-admin.php';
