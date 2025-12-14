@@ -588,4 +588,143 @@ class GA_Tareas {
             'OTRO' => __('Otro', 'gestionadmin-wolk'),
         );
     }
+
+    // =========================================================================
+    // CAMBIO DE ESTADO CON NOTIFICACIONES
+    // =========================================================================
+
+    /**
+     * Cambiar estado de tarea
+     *
+     * Este método centraliza los cambios de estado para que
+     * se disparen las notificaciones correspondientes.
+     *
+     * @param int    $tarea_id      ID de la tarea
+     * @param string $nuevo_estado  Nuevo estado
+     * @param string $nota          Nota opcional (ej: motivo rechazo)
+     * @return bool|WP_Error
+     *
+     * @since 1.6.0
+     */
+    public static function cambiar_estado($tarea_id, $nuevo_estado, $nota = '') {
+        global $wpdb;
+        $table = $wpdb->prefix . 'ga_tareas';
+
+        // Obtener tarea actual
+        $tarea = self::get($tarea_id);
+        if (!$tarea) {
+            return new WP_Error('not_found', __('Tarea no encontrada', 'gestionadmin-wolk'));
+        }
+
+        $estado_anterior = $tarea->estado;
+
+        // Si el estado es el mismo, no hacer nada
+        if ($estado_anterior === $nuevo_estado) {
+            return true;
+        }
+
+        // Preparar datos de actualización
+        $update_data = array(
+            'estado' => $nuevo_estado,
+        );
+
+        // Campos adicionales según el estado
+        switch ($nuevo_estado) {
+            case 'EN_QA':
+                $update_data['fecha_envio_qa'] = current_time('mysql');
+                break;
+
+            case 'APROBADA_QA':
+                $update_data['fecha_aprobacion_qa'] = current_time('mysql');
+                $update_data['aprobado_qa_por'] = get_current_user_id();
+                break;
+
+            case 'RECHAZADA':
+                if (!empty($nota)) {
+                    $update_data['nota_rechazo'] = sanitize_textarea_field($nota);
+                }
+                break;
+
+            case 'APROBADA':
+                $update_data['fecha_aprobacion'] = current_time('mysql');
+                $update_data['aprobado_por'] = get_current_user_id();
+                break;
+
+            case 'COMPLETADA':
+                $update_data['fecha_completada'] = current_time('mysql');
+                break;
+        }
+
+        // Actualizar en base de datos
+        $result = $wpdb->update($table, $update_data, array('id' => $tarea_id));
+
+        if ($result === false) {
+            return new WP_Error('db_error', __('Error al actualizar estado', 'gestionadmin-wolk'));
+        }
+
+        /**
+         * Hook: ga_tarea_estado_cambiado
+         *
+         * Se dispara cuando cambia el estado de una tarea.
+         * Usado por GA_Notificaciones para enviar emails.
+         *
+         * @param int    $tarea_id        ID de la tarea
+         * @param string $estado_anterior Estado antes del cambio
+         * @param string $nuevo_estado    Nuevo estado
+         * @param string $nota            Nota adicional (ej: motivo rechazo)
+         */
+        do_action('ga_tarea_estado_cambiado', $tarea_id, $estado_anterior, $nuevo_estado, $nota);
+
+        return true;
+    }
+
+    /**
+     * Asignar tarea a usuario
+     *
+     * @param int $tarea_id    ID de la tarea
+     * @param int $usuario_id  ID del usuario WordPress
+     * @return bool|WP_Error
+     *
+     * @since 1.6.0
+     */
+    public static function asignar($tarea_id, $usuario_id) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'ga_tareas';
+
+        // Obtener tarea actual
+        $tarea = self::get($tarea_id);
+        if (!$tarea) {
+            return new WP_Error('not_found', __('Tarea no encontrada', 'gestionadmin-wolk'));
+        }
+
+        $asignado_anterior = $tarea->asignado_a;
+
+        // Actualizar asignación
+        $result = $wpdb->update(
+            $table,
+            array(
+                'asignado_a' => $usuario_id,
+                'fecha_asignacion' => current_time('mysql'),
+            ),
+            array('id' => $tarea_id)
+        );
+
+        if ($result === false) {
+            return new WP_Error('db_error', __('Error al asignar tarea', 'gestionadmin-wolk'));
+        }
+
+        /**
+         * Hook: ga_tarea_asignada
+         *
+         * Se dispara cuando se asigna una tarea a un usuario.
+         * Usado por GA_Notificaciones para enviar email al empleado.
+         *
+         * @param int $tarea_id          ID de la tarea
+         * @param int $usuario_id        Nuevo usuario asignado
+         * @param int $asignado_anterior Usuario previamente asignado (0 si ninguno)
+         */
+        do_action('ga_tarea_asignada', $tarea_id, $usuario_id, $asignado_anterior);
+
+        return true;
+    }
 }

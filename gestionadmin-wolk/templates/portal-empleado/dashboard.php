@@ -40,7 +40,7 @@ GA_Theme_Integration::print_portal_styles();
                 <span class="dashicons dashicons-businessman"></span>
                 <?php esc_html_e('Portal del Empleado', 'gestionadmin-wolk'); ?>
             </h1>
-            <p><?php esc_html_e('Bienvenido a tu espacio de trabajo', 'gestionadmin-wolk'); ?></p>
+            <p class="ga-portal-subtitle"><?php esc_html_e('Bienvenido a tu espacio de trabajo', 'gestionadmin-wolk'); ?></p>
         </div>
 
         <div class="ga-coming-soon">
@@ -92,6 +92,9 @@ GA_Theme_Integration::print_portal_styles();
 .ga-portal-header {
     text-align: center;
     margin-bottom: 40px;
+    padding: 48px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
 }
 .ga-portal-header h1 {
     display: flex;
@@ -99,13 +102,18 @@ GA_Theme_Integration::print_portal_styles();
     justify-content: center;
     gap: 15px;
     font-size: 32px;
-    color: #1a1a2e;
+    color: #ffffff;
 }
 .ga-portal-header h1 .dashicons {
     font-size: 40px;
     width: 40px;
     height: 40px;
-    color: #667eea;
+    color: #ffffff;
+}
+.ga-portal-subtitle {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1.1rem;
+    margin: 0;
 }
 .ga-coming-soon {
     background: #fff;

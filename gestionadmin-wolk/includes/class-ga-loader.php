@@ -68,6 +68,10 @@ class GA_Loader {
         require_once GA_PLUGIN_DIR . 'includes/class-ga-emails.php';
         GA_Emails::get_instance();
 
+        // Cargar sistema de notificaciones por email
+        require_once GA_PLUGIN_DIR . 'includes/class-ga-notificaciones.php';
+        GA_Notificaciones::get_instance();
+
         // Cargar clase de administración (carga todos los módulos y menús)
         if (is_admin()) {
             require_once GA_PLUGIN_DIR . 'admin/class-ga-admin.php';

@@ -40,7 +40,7 @@ GA_Theme_Integration::print_portal_styles();
                 <span class="dashicons dashicons-groups"></span>
                 <?php esc_html_e('Portal del Cliente', 'gestionadmin-wolk'); ?>
             </h1>
-            <p><?php esc_html_e('Bienvenido a tu espacio de seguimiento', 'gestionadmin-wolk'); ?></p>
+            <p class="ga-portal-subtitle"><?php esc_html_e('Bienvenido a tu espacio de seguimiento', 'gestionadmin-wolk'); ?></p>
         </div>
 
         <div class="ga-coming-soon">
@@ -92,6 +92,9 @@ GA_Theme_Integration::print_portal_styles();
 .ga-portal-header {
     text-align: center;
     margin-bottom: 40px;
+    padding: 48px 20px;
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    border-radius: 12px;
 }
 .ga-portal-header h1 {
     display: flex;
@@ -99,13 +102,18 @@ GA_Theme_Integration::print_portal_styles();
     justify-content: center;
     gap: 15px;
     font-size: 32px;
-    color: #1a1a2e;
+    color: #ffffff;
 }
 .ga-portal-header h1 .dashicons {
     font-size: 40px;
     width: 40px;
     height: 40px;
-    color: #28a745;
+    color: #ffffff;
+}
+.ga-portal-subtitle {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1.1rem;
+    margin: 0;
 }
 .ga-coming-soon {
     background: #fff;

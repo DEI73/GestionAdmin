@@ -55,6 +55,9 @@ $categorias = GA_Ordenes_Trabajo::get_categorias();
 $modalidades = GA_Ordenes_Trabajo::get_modalidades();
 $tipos_pago = GA_Ordenes_Trabajo::get_tipos_pago();
 
+// Obtener nombre de la empresa para el título dinámico
+$company_name = GA_Theme_Integration::get_company_name();
+
 // Usar header del tema (o fallback del plugin si no está activo)
 get_header();
 
@@ -69,10 +72,16 @@ GA_Theme_Integration::print_portal_styles();
     <header class="ga-marketplace-header">
         <div class="ga-container">
             <h1 class="ga-marketplace-title">
-                <?php esc_html_e('Oportunidades de Trabajo', 'gestionadmin-wolk'); ?>
+                <?php
+                printf(
+                    /* translators: %s: Company name */
+                    esc_html__('ÓRDENES DE TRABAJO - PROVEEDORES DE SERVICIO %s', 'gestionadmin-wolk'),
+                    esc_html(strtoupper($company_name))
+                );
+                ?>
             </h1>
             <p class="ga-marketplace-subtitle">
-                <?php esc_html_e('Encuentra proyectos que se ajusten a tus habilidades y experiencia.', 'gestionadmin-wolk'); ?>
+                <?php esc_html_e('Acepta y firma tus órdenes de trabajo asignadas. Cada aceptación queda registrada en el sistema.', 'gestionadmin-wolk'); ?>
             </p>
         </div>
     </header>
@@ -174,10 +183,10 @@ GA_Theme_Integration::print_portal_styles();
                 <!-- Sin resultados -->
                 <div class="ga-no-results">
                     <div class="ga-no-results-icon">
-                        <span class="dashicons dashicons-search"></span>
+                        <span class="dashicons dashicons-clipboard"></span>
                     </div>
-                    <h3><?php esc_html_e('No hay órdenes disponibles', 'gestionadmin-wolk'); ?></h3>
-                    <p><?php esc_html_e('No encontramos oportunidades que coincidan con tus criterios. Intenta con otros filtros.', 'gestionadmin-wolk'); ?></p>
+                    <h3><?php esc_html_e('Sin órdenes pendientes', 'gestionadmin-wolk'); ?></h3>
+                    <p><?php esc_html_e('No tienes órdenes de trabajo pendientes por aceptar.', 'gestionadmin-wolk'); ?></p>
                 </div>
             <?php else : ?>
                 <!-- Grid de órdenes -->

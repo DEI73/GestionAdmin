@@ -50,23 +50,23 @@ $estados = array(
 <!-- Tarjetas de Estadísticas -->
 <div class="ga-stats-cards">
     <div class="ga-stat-card ga-stat-info">
-        <div class="ga-stat-number"><?php echo esc_html(number_format($stats['total_cotizado'] ?? 0, 2)); ?></div>
+        <div class="ga-stat-number"><?php echo esc_html(number_format($stats->total_cotizado ?? 0, 2)); ?></div>
         <div class="ga-stat-label"><?php esc_html_e('Total Cotizado', 'gestionadmin-wolk'); ?></div>
     </div>
     <div class="ga-stat-card ga-stat-warning">
-        <div class="ga-stat-number"><?php echo esc_html($stats['pendientes'] ?? 0); ?></div>
+        <div class="ga-stat-number"><?php echo esc_html($stats->enviadas ?? 0); ?></div>
         <div class="ga-stat-label"><?php esc_html_e('Pendientes Respuesta', 'gestionadmin-wolk'); ?></div>
     </div>
     <div class="ga-stat-card ga-stat-success">
-        <div class="ga-stat-number"><?php echo esc_html($stats['aprobadas'] ?? 0); ?></div>
+        <div class="ga-stat-number"><?php echo esc_html($stats->aprobadas ?? 0); ?></div>
         <div class="ga-stat-label"><?php esc_html_e('Aprobadas', 'gestionadmin-wolk'); ?></div>
     </div>
     <div class="ga-stat-card ga-stat-danger">
-        <div class="ga-stat-number"><?php echo esc_html($stats['rechazadas'] ?? 0); ?></div>
+        <div class="ga-stat-number"><?php echo esc_html($stats->rechazadas ?? 0); ?></div>
         <div class="ga-stat-label"><?php esc_html_e('Rechazadas', 'gestionadmin-wolk'); ?></div>
     </div>
     <div class="ga-stat-card">
-        <div class="ga-stat-number"><?php echo esc_html(number_format(($stats['tasa_conversion'] ?? 0), 1)); ?>%</div>
+        <div class="ga-stat-number"><?php echo esc_html(number_format(($stats->tasa_conversion ?? 0), 1)); ?>%</div>
         <div class="ga-stat-label"><?php esc_html_e('Tasa Conversión', 'gestionadmin-wolk'); ?></div>
     </div>
 </div>

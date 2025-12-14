@@ -79,6 +79,9 @@ class GA_Admin {
         add_action('wp_ajax_ga_create_page', array($this, 'ajax_create_page'));
         add_action('wp_ajax_ga_recreate_page', array($this, 'ajax_recreate_page'));
         add_action('wp_ajax_ga_create_all_pages', array($this, 'ajax_create_all_pages'));
+
+        // AJAX handlers - Notificaciones
+        add_action('wp_ajax_ga_save_notificaciones_config', array($this, 'ajax_save_notificaciones_config'));
     }
 
     /**
@@ -374,6 +377,16 @@ class GA_Admin {
             'manage_options',
             'gestionadmin-paginas',
             array($this, 'render_paginas')
+        );
+
+        // Notificaciones por Email
+        add_submenu_page(
+            'gestionadmin',
+            __('Notificaciones', 'gestionadmin-wolk'),
+            __('Notificaciones', 'gestionadmin-wolk'),
+            'manage_options',
+            'gestionadmin-notificaciones',
+            array($this, 'render_notificaciones')
         );
     }
 
@@ -1767,5 +1780,59 @@ class GA_Admin {
         } else {
             wp_send_json_error($result);
         }
+    }
+
+    // =========================================================================
+    // NOTIFICACIONES POR EMAIL
+    // =========================================================================
+
+    /**
+     * Renderizar página de configuración de Notificaciones
+     *
+     * Panel para activar/desactivar notificaciones por email
+     * para diferentes eventos del sistema.
+     *
+     * @since 1.6.0
+     */
+    public function render_notificaciones() {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('No tienes permisos para acceder a esta página.', 'gestionadmin-wolk'));
+        }
+        include GA_PLUGIN_DIR . 'admin/views/notificaciones-config.php';
+    }
+
+    /**
+     * AJAX: Guardar configuración de notificaciones
+     *
+     * @since 1.6.0
+     */
+    public function ajax_save_notificaciones_config() {
+        check_ajax_referer('ga_admin_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Sin permisos', 'gestionadmin-wolk')));
+        }
+
+        // Obtener configuración actual
+        $config = get_option('ga_notificaciones_config', array());
+
+        // Procesar cada tipo de notificación
+        $tipos_post = isset($_POST['tipos']) ? (array) $_POST['tipos'] : array();
+
+        // Obtener todos los tipos disponibles
+        require_once GA_PLUGIN_DIR . 'includes/class-ga-notificaciones.php';
+        $todos_tipos = array_keys(GA_Notificaciones::TIPOS);
+
+        // Actualizar configuración
+        foreach ($todos_tipos as $tipo) {
+            $config[$tipo] = in_array($tipo, $tipos_post) ? 1 : 0;
+        }
+
+        // Guardar
+        update_option('ga_notificaciones_config', $config);
+
+        wp_send_json_success(array(
+            'message' => __('Configuración guardada correctamente', 'gestionadmin-wolk')
+        ));
     }
 }
