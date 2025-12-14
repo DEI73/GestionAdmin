@@ -578,12 +578,27 @@ class GA_Aplicaciones {
             $update_data['notas_internas'] = $notas_actuales;
         }
 
-        // Si se contrata, registrar fecha
+        // Si se contrata, registrar fecha y realizar transición APLICANTE → EMPLEADO
         if ($nuevo_estado === 'CONTRATADO') {
             $update_data['fecha_contratacion'] = current_time('mysql');
 
             // También actualizar la orden de trabajo
             GA_Ordenes_Trabajo::cambiar_estado($aplicacion->orden_trabajo_id, 'ASIGNADA');
+
+            // =========================================================================
+            // TRANSICIÓN APLICANTE → EMPLEADO
+            // =========================================================================
+            // Cuando un aplicante es contratado, debe convertirse en empleado
+            // para poder acceder al Portal Empleado y gestionar sus pagos
+            // =========================================================================
+            $transicion = self::convertir_a_empleado($aplicacion);
+            if (is_wp_error($transicion)) {
+                // Log del error pero no bloquear la contratación
+                error_log('[GA] Error en transición aplicante→empleado: ' . $transicion->get_error_message());
+            }
+
+            // Rechazar automáticamente las otras aplicaciones de esta orden
+            self::rechazar_otras($aplicacion->orden_trabajo_id, $id, __('Orden asignada a otro aplicante.', 'gestionadmin-wolk'));
         }
 
         $result = $wpdb->update($table, $update_data, array('id' => $id));
@@ -661,6 +676,181 @@ class GA_Aplicaciones {
             absint($orden_id),
             absint($excepto_id)
         ));
+    }
+
+    // =========================================================================
+    // TRANSICIÓN APLICANTE → EMPLEADO
+    // =========================================================================
+
+    /**
+     * Convierte un aplicante en empleado cuando es contratado
+     *
+     * Este método realiza la transición completa:
+     * 1. Crea registro en wp_ga_usuarios (si no existe)
+     * 2. Migra datos de pago del aplicante al empleado
+     * 3. Cambia el rol WordPress de ga_aplicante a ga_empleado
+     *
+     * @since 1.16.0
+     *
+     * @param object $aplicacion Objeto de la aplicación con datos del aplicante.
+     *
+     * @return int|WP_Error ID del usuario GA creado o WP_Error en caso de fallo.
+     */
+    public static function convertir_a_empleado($aplicacion) {
+        global $wpdb;
+
+        // -------------------------------------------------------------------------
+        // Validación: Obtener datos del aplicante
+        // -------------------------------------------------------------------------
+        if (empty($aplicacion->aplicante_id)) {
+            return new WP_Error('missing_aplicante', __('ID de aplicante no encontrado en la aplicación.', 'gestionadmin-wolk'));
+        }
+
+        // Cargar módulo de aplicantes si no está disponible
+        if (!class_exists('GA_Aplicantes')) {
+            require_once GA_PLUGIN_DIR . 'includes/modules/class-ga-aplicantes.php';
+        }
+
+        $aplicante = GA_Aplicantes::get($aplicacion->aplicante_id);
+        if (!$aplicante) {
+            return new WP_Error('aplicante_not_found', __('No se encontró el aplicante.', 'gestionadmin-wolk'));
+        }
+
+        if (empty($aplicante->usuario_wp_id)) {
+            return new WP_Error('no_wp_user', __('El aplicante no tiene usuario WordPress asociado.', 'gestionadmin-wolk'));
+        }
+
+        $wp_user_id = absint($aplicante->usuario_wp_id);
+
+        // -------------------------------------------------------------------------
+        // Verificar si ya existe como empleado en wp_ga_usuarios
+        // -------------------------------------------------------------------------
+        $table_usuarios = $wpdb->prefix . 'ga_usuarios';
+        $usuario_existente = $wpdb->get_row($wpdb->prepare(
+            "SELECT id FROM {$table_usuarios} WHERE usuario_wp_id = %d",
+            $wp_user_id
+        ));
+
+        if ($usuario_existente) {
+            // Ya es empleado, solo actualizar el rol WordPress por seguridad
+            $wp_user = new WP_User($wp_user_id);
+            if (!in_array('ga_empleado', $wp_user->roles)) {
+                $wp_user->set_role('ga_empleado');
+            }
+            return $usuario_existente->id;
+        }
+
+        // -------------------------------------------------------------------------
+        // Generar código de empleado único
+        // -------------------------------------------------------------------------
+        $codigo_empleado = self::generar_codigo_empleado($wpdb, $table_usuarios);
+
+        // -------------------------------------------------------------------------
+        // Obtener datos de la orden para asignar departamento/puesto
+        // -------------------------------------------------------------------------
+        $departamento_id = null;
+        $puesto_id = null;
+
+        if (!empty($aplicacion->orden_trabajo_id)) {
+            $orden = GA_Ordenes_Trabajo::get($aplicacion->orden_trabajo_id);
+            if ($orden) {
+                $departamento_id = !empty($orden->departamento_id) ? absint($orden->departamento_id) : null;
+                $puesto_id = !empty($orden->puesto_requerido_id) ? absint($orden->puesto_requerido_id) : null;
+            }
+        }
+
+        // -------------------------------------------------------------------------
+        // Crear registro en wp_ga_usuarios
+        // -------------------------------------------------------------------------
+        $datos_usuario = array(
+            'usuario_wp_id'          => $wp_user_id,
+            'codigo_empleado'        => $codigo_empleado,
+            'departamento_id'        => $departamento_id,
+            'puesto_id'              => $puesto_id,
+            'fecha_ingreso'          => current_time('Y-m-d'),
+            'nivel_jerarquico'       => 4, // Nivel empleado por defecto
+            'metodo_pago_preferido'  => $aplicante->metodo_pago_preferido ?? 'TRANSFERENCIA',
+            'datos_pago_binance'     => $aplicante->datos_pago_binance,
+            'datos_pago_wise'        => $aplicante->datos_pago_wise,
+            'datos_pago_paypal'      => $aplicante->datos_pago_paypal,
+            'datos_pago_banco'       => $aplicante->datos_pago_banco,
+            'pais_residencia'        => $aplicante->pais ?? null,
+            'identificacion_fiscal'  => $aplicante->documento_numero ?? null,
+            'activo'                 => 1,
+            'created_at'             => current_time('mysql'),
+            'updated_at'             => current_time('mysql'),
+        );
+
+        $result = $wpdb->insert($table_usuarios, $datos_usuario);
+
+        if ($result === false) {
+            return new WP_Error('db_error', __('Error al crear registro de empleado en la base de datos.', 'gestionadmin-wolk'));
+        }
+
+        $usuario_ga_id = $wpdb->insert_id;
+
+        // -------------------------------------------------------------------------
+        // Cambiar rol WordPress: ga_aplicante → ga_empleado
+        // -------------------------------------------------------------------------
+        $wp_user = new WP_User($wp_user_id);
+
+        // Remover rol de aplicante si lo tiene
+        if (in_array('ga_aplicante', $wp_user->roles)) {
+            $wp_user->remove_role('ga_aplicante');
+        }
+
+        // Asignar rol de empleado
+        $wp_user->add_role('ga_empleado');
+
+        // -------------------------------------------------------------------------
+        // Log de la transición
+        // -------------------------------------------------------------------------
+        error_log(sprintf(
+            '[GA] Transición exitosa: Aplicante #%d (WP:%d) → Empleado #%d (Código: %s)',
+            $aplicante->id,
+            $wp_user_id,
+            $usuario_ga_id,
+            $codigo_empleado
+        ));
+
+        // TODO: Enviar notificación al nuevo empleado sobre su acceso al Portal Empleado
+
+        return $usuario_ga_id;
+    }
+
+    /**
+     * Genera un código de empleado único
+     *
+     * Formato: EMP-YYYY-NNNN (ej: EMP-2024-0001)
+     *
+     * @since 1.16.0
+     *
+     * @param wpdb   $wpdb            Instancia de base de datos.
+     * @param string $table_usuarios  Nombre de la tabla de usuarios.
+     *
+     * @return string Código de empleado generado.
+     */
+    private static function generar_codigo_empleado($wpdb, $table_usuarios) {
+        $year = date('Y');
+        $prefix = "EMP-{$year}-";
+
+        // Obtener el último código de este año
+        $ultimo = $wpdb->get_var($wpdb->prepare(
+            "SELECT codigo_empleado FROM {$table_usuarios}
+             WHERE codigo_empleado LIKE %s
+             ORDER BY codigo_empleado DESC
+             LIMIT 1",
+            $prefix . '%'
+        ));
+
+        if ($ultimo) {
+            // Extraer el número y aumentar
+            $numero = intval(substr($ultimo, -4)) + 1;
+        } else {
+            $numero = 1;
+        }
+
+        return $prefix . str_pad($numero, 4, '0', STR_PAD_LEFT);
     }
 
     // =========================================================================

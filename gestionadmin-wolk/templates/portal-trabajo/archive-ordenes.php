@@ -192,14 +192,24 @@ GA_Theme_Integration::print_portal_styles();
                 <!-- Grid de órdenes -->
                 <div class="ga-orders-grid">
                     <?php foreach ($ordenes as $orden) :
-                        // Formatear presupuesto
+                        // =====================================================================
+                        // Formatear presupuesto/tarifa
+                        // Campos disponibles: tarifa_hora_min, tarifa_hora_max, presupuesto_fijo
+                        // =====================================================================
                         $presupuesto = '';
-                        if ($orden->presupuesto_min && $orden->presupuesto_max) {
-                            $presupuesto = '$' . number_format($orden->presupuesto_min, 0) . ' - $' . number_format($orden->presupuesto_max, 0);
-                        } elseif ($orden->presupuesto_max) {
-                            $presupuesto = 'Hasta $' . number_format($orden->presupuesto_max, 0);
-                        } elseif ($orden->presupuesto_min) {
-                            $presupuesto = 'Desde $' . number_format($orden->presupuesto_min, 0);
+                        $tarifa_min = isset($orden->tarifa_hora_min) ? floatval($orden->tarifa_hora_min) : 0;
+                        $tarifa_max = isset($orden->tarifa_hora_max) ? floatval($orden->tarifa_hora_max) : 0;
+                        $pres_fijo = isset($orden->presupuesto_fijo) ? floatval($orden->presupuesto_fijo) : 0;
+                        $tipo_pago_orden = $orden->tipo_pago ?? '';
+
+                        if ($tipo_pago_orden === 'PRECIO_FIJO' && $pres_fijo > 0) {
+                            $presupuesto = '$' . number_format($pres_fijo, 0);
+                        } elseif ($tarifa_min > 0 && $tarifa_max > 0) {
+                            $presupuesto = '$' . number_format($tarifa_min, 0) . ' - $' . number_format($tarifa_max, 0) . '/hr';
+                        } elseif ($tarifa_max > 0) {
+                            $presupuesto = __('Hasta', 'gestionadmin-wolk') . ' $' . number_format($tarifa_max, 0) . '/hr';
+                        } elseif ($tarifa_min > 0) {
+                            $presupuesto = __('Desde', 'gestionadmin-wolk') . ' $' . number_format($tarifa_min, 0) . '/hr';
                         }
 
                         // Habilidades
@@ -212,23 +222,35 @@ GA_Theme_Integration::print_portal_styles();
                         }
 
                         // Tiempo desde publicación
-                        $tiempo = human_time_diff(strtotime($orden->created_at), current_time('timestamp'));
+                        $fecha_creacion = $orden->created_at ?? $orden->fecha_publicacion ?? current_time('mysql');
+                        $tiempo = human_time_diff(strtotime($fecha_creacion), current_time('timestamp'));
 
                         // Número de aplicaciones
                         $num_apps = GA_Ordenes_Trabajo::count_aplicaciones($orden->id);
+
+                        // Modalidad y categoría con fallback
+                        $modalidad_orden = $orden->modalidad ?? 'REMOTO';
+                        $categoria_orden = $orden->categoria ?? 'OTRO';
+
+                        // Verificar si es urgente (usar fecha_cierre_aplicaciones si no hay campo prioridad)
+                        $es_urgente = false;
+                        if (!empty($orden->fecha_cierre_aplicaciones)) {
+                            $dias_restantes = (strtotime($orden->fecha_cierre_aplicaciones) - current_time('timestamp')) / DAY_IN_SECONDS;
+                            $es_urgente = ($dias_restantes <= 3 && $dias_restantes > 0);
+                        }
                     ?>
                         <article class="ga-order-card">
                             <!-- Header -->
                             <header class="ga-order-card-header">
                                 <div class="ga-order-meta">
                                     <span class="ga-order-category">
-                                        <?php echo esc_html($categorias[$orden->categoria] ?? $orden->categoria); ?>
+                                        <?php echo esc_html($categorias[$categoria_orden] ?? $categoria_orden); ?>
                                     </span>
                                     <span class="ga-order-time">
                                         <?php printf(esc_html__('Hace %s', 'gestionadmin-wolk'), $tiempo); ?>
                                     </span>
                                 </div>
-                                <?php if ($orden->prioridad === 'URGENTE') : ?>
+                                <?php if ($es_urgente) : ?>
                                     <span class="ga-badge ga-badge-urgent"><?php esc_html_e('Urgente', 'gestionadmin-wolk'); ?></span>
                                 <?php endif; ?>
                             </header>
@@ -263,11 +285,11 @@ GA_Theme_Integration::print_portal_styles();
                                 <div class="ga-order-details">
                                     <span class="ga-order-detail">
                                         <span class="dashicons dashicons-location"></span>
-                                        <?php echo esc_html($modalidades[$orden->modalidad] ?? $orden->modalidad); ?>
+                                        <?php echo esc_html($modalidades[$modalidad_orden] ?? $modalidad_orden); ?>
                                     </span>
                                     <span class="ga-order-detail">
                                         <span class="dashicons dashicons-money-alt"></span>
-                                        <?php echo esc_html($presupuesto ?: $tipos_pago[$orden->tipo_pago] ?? ''); ?>
+                                        <?php echo esc_html($presupuesto ?: ($tipos_pago[$tipo_pago_orden] ?? __('A convenir', 'gestionadmin-wolk'))); ?>
                                     </span>
                                     <?php if ($num_apps > 0) : ?>
                                         <span class="ga-order-detail">

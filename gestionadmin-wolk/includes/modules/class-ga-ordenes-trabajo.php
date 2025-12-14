@@ -363,9 +363,12 @@ class GA_Ordenes_Trabajo {
 
         $table = $wpdb->prefix . 'ga_ordenes_trabajo';
 
+        // Normalizar a mayúsculas para búsqueda consistente
+        $codigo_normalizado = strtoupper(sanitize_text_field($codigo));
+
         $sql = $wpdb->prepare(
-            "SELECT * FROM {$table} WHERE codigo = %s",
-            sanitize_text_field($codigo)
+            "SELECT * FROM {$table} WHERE UPPER(codigo) = %s",
+            $codigo_normalizado
         );
 
         return $wpdb->get_row($sql);

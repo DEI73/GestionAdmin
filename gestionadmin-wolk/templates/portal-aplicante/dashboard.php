@@ -633,10 +633,10 @@ if ($aplicante->estado === 'PENDIENTE_VERIFICACION') {
 // =========================================================================
 // URLS DE NAVEGACION
 // =========================================================================
+// NOTA: Sin Mis Pagos - aplicantes no tienen pagos, cobran como empleados
 $url_dashboard = home_url('/mi-cuenta/');
 $url_aplicaciones = home_url('/mi-cuenta/aplicaciones/');
 $url_marketplace = home_url('/trabajo/');
-$url_pagos = home_url('/mi-cuenta/pagos/');
 $url_perfil = home_url('/mi-cuenta/perfil/');
 
 // =========================================================================
@@ -670,10 +670,6 @@ GA_Theme_Integration::print_portal_styles();
             <a href="<?php echo esc_url($url_marketplace); ?>" class="ga-nav-item">
                 <span class="dashicons dashicons-store"></span>
                 <span class="ga-nav-text"><?php esc_html_e('Marketplace', 'gestionadmin-wolk'); ?></span>
-            </a>
-            <a href="<?php echo esc_url($url_pagos); ?>" class="ga-nav-item">
-                <span class="dashicons dashicons-money-alt"></span>
-                <span class="ga-nav-text"><?php esc_html_e('Mis Pagos', 'gestionadmin-wolk'); ?></span>
             </a>
             <a href="<?php echo esc_url($url_perfil); ?>" class="ga-nav-item">
                 <span class="dashicons dashicons-admin-users"></span>
@@ -1003,18 +999,6 @@ GA_Theme_Integration::print_portal_styles();
                 </span>
             </a>
 
-            <a href="<?php echo esc_url($url_pagos); ?>" class="ga-quick-card">
-                <div class="ga-quick-icon ga-quick-payments">
-                    <span class="dashicons dashicons-money-alt"></span>
-                </div>
-                <div class="ga-quick-content">
-                    <h3><?php esc_html_e('Mis Pagos', 'gestionadmin-wolk'); ?></h3>
-                    <p><?php esc_html_e('Consulta tu historial de pagos recibidos', 'gestionadmin-wolk'); ?></p>
-                </div>
-                <span class="ga-quick-arrow">
-                    <span class="dashicons dashicons-arrow-right-alt"></span>
-                </span>
-            </a>
         </section>
 
         <!-- =====================================================================

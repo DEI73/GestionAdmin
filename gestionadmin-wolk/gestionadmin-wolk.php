@@ -19,7 +19,8 @@ if (!defined('ABSPATH')) {
 }
 
 // Definir constantes del plugin
-define('GA_VERSION', '1.0.0');
+// IMPORTANTE: Incrementar versión al agregar nuevas rewrite rules
+define('GA_VERSION', '1.6.0');
 define('GA_PLUGIN_FILE', __FILE__);
 define('GA_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('GA_PLUGIN_URL', plugin_dir_url(__FILE__));

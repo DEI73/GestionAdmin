@@ -1,7 +1,7 @@
 # Diccionario de Datos - GestionAdmin Wolk
 
-> **Versión:** 1.6.1
-> **Actualizado:** Diciembre 2024
+> **Versión:** 1.17.0
+> **Actualizado:** 14 Diciembre 2024
 > **Base de datos:** MySQL/MariaDB con prefijo `wp_ga_`
 
 ---
@@ -39,6 +39,7 @@
 | 27 | `wp_ga_solicitudes_cobro` | Solicitudes de pago | 11-12 |
 | 28 | `wp_ga_solicitudes_cobro_detalle` | Detalle de solicitudes | 11-12 |
 | 29 | `wp_ga_metodos_pago` | Métodos de pago configurados | 13-14 |
+| 30 | `wp_ga_cambios_log` | Auditoría de cambios en registros | 15+ |
 
 ---
 
@@ -1057,6 +1058,64 @@ BORRADOR → CANCELADA
 
 ---
 
+## Sprint 15+: Auditoría y Seguridad
+
+### 30. wp_ga_cambios_log
+
+**Propósito:** Registra todos los cambios realizados en tablas del sistema para auditoría y trazabilidad. Permite rastrear quién, cuándo y qué cambió en cualquier registro.
+
+| Columna | Tipo | Nulo | Default | Descripción |
+|---------|------|------|---------|-------------|
+| `id` | BIGINT UNSIGNED | NO | AUTO_INCREMENT | PK |
+| `tabla` | VARCHAR(50) | NO | - | Nombre de la tabla afectada (sin prefijo wp_) |
+| `registro_id` | BIGINT UNSIGNED | NO | - | ID del registro modificado |
+| `campo` | VARCHAR(100) | NO | - | Nombre del campo modificado |
+| `valor_anterior` | TEXT | SI | NULL | Valor antes del cambio |
+| `valor_nuevo` | TEXT | SI | NULL | Valor después del cambio |
+| `modificado_por` | BIGINT UNSIGNED | NO | - | FK → wp_users (quien hizo el cambio) |
+| `ip_address` | VARCHAR(45) | SI | NULL | IP del cliente (IPv4 o IPv6) |
+| `user_agent` | VARCHAR(255) | SI | NULL | Navegador/dispositivo |
+| `accion` | ENUM | SI | 'UPDATE' | INSERT, UPDATE, DELETE |
+| `motivo` | TEXT | SI | NULL | Razón del cambio (opcional) |
+| `created_at` | DATETIME | SI | CURRENT_TIMESTAMP | Fecha y hora del cambio |
+
+**Índices:**
+- `PRIMARY KEY (id)`
+- `idx_tabla_registro (tabla, registro_id)` - Buscar cambios por tabla y registro
+- `idx_modificado_por (modificado_por)` - Buscar cambios por usuario
+- `idx_campo (campo)` - Filtrar por campo específico
+- `idx_fecha (created_at)` - Ordenar por fecha
+- `idx_accion (accion)` - Filtrar por tipo de acción
+
+**Uso Principal:**
+- Auditoría de cambios en perfiles de empleados/aplicantes
+- Trazabilidad de modificaciones en datos sensibles
+- Historial de cambios para cumplimiento normativo
+- Depuración y soporte técnico
+
+**Ejemplo de Registro:**
+```json
+{
+  "tabla": "ga_aplicantes",
+  "registro_id": 42,
+  "campo": "telefono",
+  "valor_anterior": "+57 300 123 4567",
+  "valor_nuevo": "+57 301 987 6543",
+  "modificado_por": 15,
+  "ip_address": "190.25.123.45",
+  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)...",
+  "accion": "UPDATE"
+}
+```
+
+**Notas de Implementación:**
+- Los datos de pago sensibles se registran como "[DATOS DE PAGO]" sin exponer valores reales
+- La IP se obtiene correctamente incluso detrás de Cloudflare o proxies
+- El user_agent se trunca a 255 caracteres máximo
+- Compatible con IPv6 (campo de 45 caracteres)
+
+---
+
 ## Configuración en wp_options
 
 El plugin almacena configuraciones globales en la tabla nativa `wp_options` de WordPress.
@@ -1175,4 +1234,4 @@ Cada tabla incluye índices para:
 
 ---
 
-*Documento generado automáticamente - GestionAdmin Wolk v1.6.1*
+*Documento generado automáticamente - GestionAdmin Wolk v1.17.0*

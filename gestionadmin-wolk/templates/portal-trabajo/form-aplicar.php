@@ -60,14 +60,24 @@ if ($aplicacion_existente) {
 // Enums
 $tipos_pago = GA_Ordenes_Trabajo::get_tipos_pago();
 
+// =============================================================================
 // Presupuesto formateado
+// Campos disponibles: tarifa_hora_min, tarifa_hora_max, presupuesto_fijo
+// =============================================================================
 $presupuesto = '';
-if ($orden->presupuesto_min && $orden->presupuesto_max) {
-    $presupuesto = '$' . number_format($orden->presupuesto_min, 0) . ' - $' . number_format($orden->presupuesto_max, 0);
-} elseif ($orden->presupuesto_max) {
-    $presupuesto = 'Hasta $' . number_format($orden->presupuesto_max, 0);
-} elseif ($orden->presupuesto_min) {
-    $presupuesto = 'Desde $' . number_format($orden->presupuesto_min, 0);
+$tarifa_min = isset($orden->tarifa_hora_min) ? floatval($orden->tarifa_hora_min) : 0;
+$tarifa_max = isset($orden->tarifa_hora_max) ? floatval($orden->tarifa_hora_max) : 0;
+$pres_fijo = isset($orden->presupuesto_fijo) ? floatval($orden->presupuesto_fijo) : 0;
+$tipo_pago_orden = $orden->tipo_pago ?? '';
+
+if ($tipo_pago_orden === 'PRECIO_FIJO' && $pres_fijo > 0) {
+    $presupuesto = '$' . number_format($pres_fijo, 0);
+} elseif ($tarifa_min > 0 && $tarifa_max > 0) {
+    $presupuesto = '$' . number_format($tarifa_min, 0) . ' - $' . number_format($tarifa_max, 0) . '/hr';
+} elseif ($tarifa_max > 0) {
+    $presupuesto = __('Hasta', 'gestionadmin-wolk') . ' $' . number_format($tarifa_max, 0) . '/hr';
+} elseif ($tarifa_min > 0) {
+    $presupuesto = __('Desde', 'gestionadmin-wolk') . ' $' . number_format($tarifa_min, 0) . '/hr';
 }
 
 // Usar header del tema (o fallback del plugin si no está activo)
@@ -128,12 +138,12 @@ GA_Theme_Integration::print_portal_styles();
                     </div>
 
                     <!-- Propuesta económica -->
-                    <?php if ($orden->tipo_pago !== 'A_CONVENIR' || $presupuesto) : ?>
+                    <?php if ($tipo_pago_orden !== 'A_CONVENIR' || $presupuesto) : ?>
                         <div class="ga-form-row">
                             <div class="ga-form-group ga-form-group-half">
                                 <label for="propuesta_monto" class="ga-form-label">
                                     <?php
-                                    if ($orden->tipo_pago === 'POR_HORA') {
+                                    if ($tipo_pago_orden === 'POR_HORA') {
                                         esc_html_e('Tu Tarifa por Hora (USD)', 'gestionadmin-wolk');
                                     } else {
                                         esc_html_e('Tu Propuesta (USD)', 'gestionadmin-wolk');
@@ -235,12 +245,12 @@ GA_Theme_Integration::print_portal_styles();
                         <?php endif; ?>
                         <li>
                             <span class="ga-label"><?php esc_html_e('Tipo de Pago', 'gestionadmin-wolk'); ?></span>
-                            <span class="ga-value"><?php echo esc_html($tipos_pago[$orden->tipo_pago] ?? $orden->tipo_pago); ?></span>
+                            <span class="ga-value"><?php echo esc_html($tipos_pago[$tipo_pago_orden] ?? $tipo_pago_orden); ?></span>
                         </li>
-                        <?php if ($orden->duracion_estimada_dias) : ?>
+                        <?php if (!empty($orden->duracion_estimada_dias)) : ?>
                             <li>
                                 <span class="ga-label"><?php esc_html_e('Duración', 'gestionadmin-wolk'); ?></span>
-                                <span class="ga-value"><?php printf(esc_html__('%d días', 'gestionadmin-wolk'), $orden->duracion_estimada_dias); ?></span>
+                                <span class="ga-value"><?php printf(esc_html__('%d días', 'gestionadmin-wolk'), intval($orden->duracion_estimada_dias)); ?></span>
                             </li>
                         <?php endif; ?>
                     </ul>

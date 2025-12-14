@@ -267,11 +267,10 @@ $tiene_cv = !empty($aplicante->cv_archivo);
 $tiene_doc_frente = !empty($aplicante->documento_frente);
 $tiene_doc_reverso = !empty($aplicante->documento_reverso);
 
-// URLs de navegacion
+// URLs de navegacion (sin Mis Pagos - aplicantes no tienen pagos)
 $url_dashboard = home_url('/mi-cuenta/');
 $url_aplicaciones = home_url('/mi-cuenta/aplicaciones/');
 $url_marketplace = home_url('/trabajo/');
-$url_pagos = home_url('/mi-cuenta/pagos/');
 $url_perfil = home_url('/mi-cuenta/perfil/');
 $url_soporte = home_url('/contacto/');
 
@@ -303,10 +302,6 @@ GA_Theme_Integration::print_portal_styles();
             <a href="<?php echo esc_url($url_marketplace); ?>" class="ga-nav-item">
                 <span class="dashicons dashicons-store"></span>
                 <span class="ga-nav-text"><?php esc_html_e('Marketplace', 'gestionadmin-wolk'); ?></span>
-            </a>
-            <a href="<?php echo esc_url($url_pagos); ?>" class="ga-nav-item">
-                <span class="dashicons dashicons-money-alt"></span>
-                <span class="ga-nav-text"><?php esc_html_e('Mis Pagos', 'gestionadmin-wolk'); ?></span>
             </a>
             <a href="<?php echo esc_url($url_perfil); ?>" class="ga-nav-item active">
                 <span class="dashicons dashicons-admin-users"></span>

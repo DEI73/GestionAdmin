@@ -81,6 +81,9 @@ class GA_Public {
         add_action('init', array($this, 'add_rewrite_rules'));
         add_filter('query_vars', array($this, 'register_query_vars'));
 
+        // Flush automático de rewrite rules cuando se actualiza el plugin
+        add_action('init', array($this, 'maybe_flush_rewrite_rules'), 20);
+
         // Template override
         add_filter('template_include', array($this, 'load_template'));
 
@@ -92,6 +95,9 @@ class GA_Public {
         add_action('wp_ajax_nopriv_ga_public_aplicar', array($this, 'ajax_aplicar'));
         add_action('wp_ajax_ga_public_registro_aplicante', array($this, 'ajax_registro_aplicante'));
         add_action('wp_ajax_nopriv_ga_public_registro_aplicante', array($this, 'ajax_registro_aplicante'));
+
+        // AJAX handlers Portal Empleado (solo usuarios logueados)
+        add_action('wp_ajax_ga_update_perfil_empleado', array($this, 'ajax_update_perfil_empleado'));
     }
 
     // =========================================================================
@@ -124,16 +130,18 @@ class GA_Public {
             'top'
         );
 
-        // /trabajo/OT-2024-0001/ → Detalle de orden
+        // /trabajo/{CODIGO}/ → Detalle de orden
+        // Acepta formatos: OT-2024-0001, TEST-OT-001, o cualquier código alfanumérico con guiones
+        // IMPORTANTE: Incluye a-z (minúsculas) porque WordPress normaliza URLs
         add_rewrite_rule(
-            '^trabajo/(OT-[0-9]{4}-[0-9]+)/?$',
+            '^trabajo/([a-zA-Z0-9]+-[a-zA-Z0-9-]+)/?$',
             'index.php?ga_portal=trabajo&ga_section=single&ga_codigo=$matches[1]',
             'top'
         );
 
-        // /trabajo/OT-2024-0001/aplicar/ → Formulario de aplicación
+        // /trabajo/{CODIGO}/aplicar/ → Formulario de aplicación
         add_rewrite_rule(
-            '^trabajo/(OT-[0-9]{4}-[0-9]+)/aplicar/?$',
+            '^trabajo/([a-zA-Z0-9]+-[a-zA-Z0-9-]+)/aplicar/?$',
             'index.php?ga_portal=trabajo&ga_section=aplicar&ga_codigo=$matches[1]',
             'top'
         );
@@ -169,6 +177,77 @@ class GA_Public {
             'index.php?ga_portal=aplicante&ga_section=registro',
             'top'
         );
+
+        // =====================================================================
+        // PORTAL DE EMPLEADO (Panel privado para trabajadores)
+        // =====================================================================
+
+        // /portal-empleado/ → Dashboard del empleado
+        add_rewrite_rule(
+            '^portal-empleado/?$',
+            'index.php?ga_portal=empleado&ga_section=dashboard',
+            'top'
+        );
+
+        // /portal-empleado/mis-tareas/ → Tareas asignadas
+        add_rewrite_rule(
+            '^portal-empleado/mis-tareas/?$',
+            'index.php?ga_portal=empleado&ga_section=tareas',
+            'top'
+        );
+
+        // /portal-empleado/mi-timer/ → Timer de trabajo
+        add_rewrite_rule(
+            '^portal-empleado/mi-timer/?$',
+            'index.php?ga_portal=empleado&ga_section=timer',
+            'top'
+        );
+
+        // /portal-empleado/mis-horas/ → Historial de horas
+        add_rewrite_rule(
+            '^portal-empleado/mis-horas/?$',
+            'index.php?ga_portal=empleado&ga_section=horas',
+            'top'
+        );
+
+        // /portal-empleado/mi-perfil/ → Perfil del empleado
+        add_rewrite_rule(
+            '^portal-empleado/mi-perfil/?$',
+            'index.php?ga_portal=empleado&ga_section=perfil',
+            'top'
+        );
+
+        // =====================================================================
+        // PORTAL DE CLIENTE (Panel privado para clientes)
+        // =====================================================================
+
+        // /cliente/ → Dashboard del cliente
+        add_rewrite_rule(
+            '^cliente/?$',
+            'index.php?ga_portal=cliente&ga_section=dashboard',
+            'top'
+        );
+
+        // /cliente/mis-casos/ → Casos del cliente
+        add_rewrite_rule(
+            '^cliente/mis-casos/?$',
+            'index.php?ga_portal=cliente&ga_section=casos',
+            'top'
+        );
+
+        // /cliente/mis-facturas/ → Facturas del cliente
+        add_rewrite_rule(
+            '^cliente/mis-facturas/?$',
+            'index.php?ga_portal=cliente&ga_section=facturas',
+            'top'
+        );
+
+        // /cliente/mi-perfil/ → Perfil del cliente
+        add_rewrite_rule(
+            '^cliente/mi-perfil/?$',
+            'index.php?ga_portal=cliente&ga_section=perfil',
+            'top'
+        );
     }
 
     /**
@@ -192,6 +271,25 @@ class GA_Public {
     public function flush_rewrite_rules() {
         $this->add_rewrite_rules();
         flush_rewrite_rules();
+    }
+
+    /**
+     * Verifica si se necesita hacer flush de rewrite rules
+     *
+     * Compara la versión del plugin con la versión guardada.
+     * Si son diferentes, hace flush y actualiza la versión.
+     *
+     * @since 1.6.0
+     */
+    public function maybe_flush_rewrite_rules() {
+        $saved_version = get_option('ga_rewrite_rules_version', '0');
+
+        // Si la versión cambió o se activó el flag de flush, regenerar reglas
+        if ($saved_version !== GA_VERSION || get_option('ga_flush_rewrite_rules')) {
+            flush_rewrite_rules();
+            update_option('ga_rewrite_rules_version', GA_VERSION);
+            delete_option('ga_flush_rewrite_rules');
+        }
     }
 
     // =========================================================================
@@ -231,6 +329,14 @@ class GA_Public {
 
                 case 'aplicante':
                     $template_file = $this->get_aplicante_template($section);
+                    break;
+
+                case 'empleado':
+                    $template_file = $this->get_empleado_template($section);
+                    break;
+
+                case 'cliente':
+                    $template_file = $this->get_cliente_template($section);
                     break;
             }
 
@@ -331,6 +437,97 @@ class GA_Public {
             default:
                 return $template_dir . 'dashboard.php';
         }
+    }
+
+    /**
+     * Obtiene el template para el portal de empleado
+     *
+     * @since 1.6.0
+     *
+     * @param string $section Sección del portal.
+     *
+     * @return string Path al template o string vacío si no existe.
+     */
+    private function get_empleado_template($section) {
+        $template_dir = GA_PLUGIN_DIR . 'templates/portal-empleado/';
+
+        // Requiere estar logueado
+        if (!is_user_logged_in()) {
+            // Redirigir al login
+            wp_redirect(wp_login_url(home_url($_SERVER['REQUEST_URI'])));
+            exit;
+        }
+
+        // Verificar que el usuario tiene rol de empleado o admin
+        $user = wp_get_current_user();
+        $allowed_roles = array('ga_empleado', 'ga_socio', 'ga_director', 'ga_jefe', 'administrator');
+        if (!array_intersect($allowed_roles, (array) $user->roles)) {
+            // No tiene permisos - mostrar mensaje de acceso denegado
+            return GA_PLUGIN_DIR . 'templates/access-denied.php';
+        }
+
+        // Mapeo de secciones a templates
+        $templates = array(
+            'dashboard' => 'dashboard.php',
+            'tareas'    => 'mis-tareas.php',
+            'timer'     => 'mi-timer.php',
+            'horas'     => 'mis-horas.php',
+            'perfil'    => 'mi-perfil.php',
+        );
+
+        $template = isset($templates[$section]) ? $templates[$section] : 'dashboard.php';
+        $template_path = $template_dir . $template;
+
+        if (file_exists($template_path)) {
+            return $template_path;
+        }
+
+        // Fallback al dashboard
+        return $template_dir . 'dashboard.php';
+    }
+
+    /**
+     * Obtiene el template para el portal de cliente
+     *
+     * @since 1.6.0
+     *
+     * @param string $section Sección del portal.
+     *
+     * @return string Path al template o string vacío si no existe.
+     */
+    private function get_cliente_template($section) {
+        $template_dir = GA_PLUGIN_DIR . 'templates/portal-cliente/';
+
+        // Requiere estar logueado
+        if (!is_user_logged_in()) {
+            wp_redirect(wp_login_url(home_url($_SERVER['REQUEST_URI'])));
+            exit;
+        }
+
+        // Verificar que el usuario tiene rol de cliente o admin
+        $user = wp_get_current_user();
+        $allowed_roles = array('ga_cliente', 'administrator');
+        if (!array_intersect($allowed_roles, (array) $user->roles)) {
+            return GA_PLUGIN_DIR . 'templates/access-denied.php';
+        }
+
+        // Mapeo de secciones a templates
+        $templates = array(
+            'dashboard' => 'dashboard.php',
+            'casos'     => 'mis-casos.php',
+            'facturas'  => 'mis-facturas.php',
+            'perfil'    => 'mi-perfil.php',
+        );
+
+        $template = isset($templates[$section]) ? $templates[$section] : 'dashboard.php';
+        $template_path = $template_dir . $template;
+
+        if (file_exists($template_path)) {
+            return $template_path;
+        }
+
+        // Fallback al dashboard
+        return $template_dir . 'dashboard.php';
     }
 
     // =========================================================================
@@ -502,6 +699,368 @@ class GA_Public {
             'message'     => $result['message'],
             'redirect_to' => home_url('/mi-cuenta/'),
         ));
+    }
+
+    // =========================================================================
+    // AJAX: ACTUALIZAR PERFIL EMPLEADO
+    // =========================================================================
+
+    /**
+     * Actualiza el perfil del empleado
+     *
+     * Actualiza datos personales, documentos y método de pago en wp_ga_aplicantes.
+     * Registra todos los cambios en wp_ga_cambios_log para auditoría.
+     *
+     * @since 1.17.0
+     */
+    public function ajax_update_perfil_empleado() {
+        // Verificar nonce
+        if (!wp_verify_nonce($_POST['ga_perfil_nonce'] ?? '', 'ga_update_perfil_empleado')) {
+            wp_send_json_error(array(
+                'message' => __('Error de seguridad. Recarga la página e intenta de nuevo.', 'gestionadmin-wolk'),
+            ));
+        }
+
+        // Verificar que está logueado
+        if (!is_user_logged_in()) {
+            wp_send_json_error(array(
+                'message' => __('Debes iniciar sesión para actualizar tu perfil.', 'gestionadmin-wolk'),
+            ));
+        }
+
+        $wp_user_id = get_current_user_id();
+
+        // Verificar que tiene rol de empleado
+        if (!current_user_can('ga_empleado') && !current_user_can('administrator')) {
+            wp_send_json_error(array(
+                'message' => __('No tienes permisos para realizar esta acción.', 'gestionadmin-wolk'),
+            ));
+        }
+
+        // Obtener aplicante_id del formulario
+        $aplicante_id = absint($_POST['aplicante_id'] ?? 0);
+        if (!$aplicante_id) {
+            wp_send_json_error(array(
+                'message' => __('Perfil de aplicante no encontrado.', 'gestionadmin-wolk'),
+            ));
+        }
+
+        global $wpdb;
+        $table_aplicantes = $wpdb->prefix . 'ga_aplicantes';
+        $table_log = $wpdb->prefix . 'ga_cambios_log';
+
+        // Verificar que el aplicante pertenece al usuario actual
+        $aplicante = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$table_aplicantes} WHERE id = %d AND usuario_wp_id = %d",
+            $aplicante_id,
+            $wp_user_id
+        ));
+
+        if (!$aplicante) {
+            wp_send_json_error(array(
+                'message' => __('No se encontró tu perfil de aplicante.', 'gestionadmin-wolk'),
+            ));
+        }
+
+        // =====================================================================
+        // PREPARAR DATOS A ACTUALIZAR
+        // =====================================================================
+
+        // Campos de texto permitidos
+        $campos_texto = array(
+            'nombre_completo'    => 'sanitize_text_field',
+            'documento_tipo'     => 'sanitize_text_field',
+            'documento_numero'   => 'sanitize_text_field',
+            'telefono'           => 'sanitize_text_field',
+            'pais'               => 'sanitize_text_field',
+            'ciudad'             => 'sanitize_text_field',
+            'direccion'          => 'sanitize_textarea_field',
+            'metodo_pago_preferido' => 'sanitize_text_field',
+        );
+
+        $update_data = array();
+        $cambios = array();
+
+        // Procesar campos de texto
+        foreach ($campos_texto as $campo => $sanitize_func) {
+            if (isset($_POST[$campo])) {
+                $valor_nuevo = call_user_func($sanitize_func, $_POST[$campo]);
+                $valor_anterior = $aplicante->$campo ?? '';
+
+                if ($valor_nuevo !== $valor_anterior) {
+                    $update_data[$campo] = $valor_nuevo;
+                    $cambios[] = array(
+                        'campo' => $campo,
+                        'anterior' => $valor_anterior,
+                        'nuevo' => $valor_nuevo,
+                    );
+                }
+            }
+        }
+
+        // =====================================================================
+        // PROCESAR DATOS DE PAGO (JSON)
+        // =====================================================================
+        $metodo_pago = sanitize_text_field($_POST['metodo_pago_preferido'] ?? 'TRANSFERENCIA');
+        $datos_pago_json = null;
+
+        switch ($metodo_pago) {
+            case 'BINANCE':
+                $datos_pago_json = wp_json_encode(array(
+                    'email' => sanitize_email($_POST['binance_email'] ?? ''),
+                    'id'    => sanitize_text_field($_POST['binance_id'] ?? ''),
+                ));
+                $campo_pago = 'datos_pago_binance';
+                break;
+
+            case 'WISE':
+                $datos_pago_json = wp_json_encode(array(
+                    'email' => sanitize_email($_POST['wise_email'] ?? ''),
+                ));
+                $campo_pago = 'datos_pago_wise';
+                break;
+
+            case 'PAYPAL':
+                $datos_pago_json = wp_json_encode(array(
+                    'email' => sanitize_email($_POST['paypal_email'] ?? ''),
+                ));
+                $campo_pago = 'datos_pago_paypal';
+                break;
+
+            case 'PAYONEER':
+                $datos_pago_json = wp_json_encode(array(
+                    'email' => sanitize_email($_POST['payoneer_email'] ?? ''),
+                ));
+                $campo_pago = 'datos_pago_wise'; // Reutiliza campo
+                break;
+
+            case 'STRIPE':
+                $datos_pago_json = wp_json_encode(array(
+                    'email' => sanitize_email($_POST['stripe_email'] ?? ''),
+                ));
+                $campo_pago = 'datos_pago_wise'; // Reutiliza campo
+                break;
+
+            case 'TRANSFERENCIA':
+                $datos_pago_json = wp_json_encode(array(
+                    'banco'         => sanitize_text_field($_POST['banco_nombre'] ?? ''),
+                    'tipo_cuenta'   => sanitize_text_field($_POST['banco_tipo_cuenta'] ?? ''),
+                    'numero_cuenta' => sanitize_text_field($_POST['banco_numero_cuenta'] ?? ''),
+                    'titular'       => sanitize_text_field($_POST['banco_titular'] ?? ''),
+                ));
+                $campo_pago = 'datos_pago_banco';
+                break;
+        }
+
+        // Verificar si cambió el dato de pago
+        if (isset($campo_pago) && $datos_pago_json) {
+            $valor_anterior_pago = $aplicante->$campo_pago ?? '';
+            if ($datos_pago_json !== $valor_anterior_pago) {
+                $update_data[$campo_pago] = $datos_pago_json;
+                $cambios[] = array(
+                    'campo' => $campo_pago,
+                    'anterior' => '[DATOS DE PAGO]', // No logueamos datos sensibles
+                    'nuevo' => '[DATOS DE PAGO ACTUALIZADOS]',
+                );
+            }
+        }
+
+        // =====================================================================
+        // PROCESAR ARCHIVOS
+        // =====================================================================
+        $campos_archivo = array(
+            'documento_identidad'   => 'documento_identidad_url',
+            'rut'                   => 'rut_url',
+            'certificado_bancario'  => 'certificado_bancario_url',
+            'cv'                    => 'cv_url',
+        );
+
+        foreach ($campos_archivo as $input_name => $db_field) {
+            if (!empty($_FILES[$input_name]['name'])) {
+                $upload_result = $this->handle_file_upload($input_name, $wp_user_id);
+                if ($upload_result['success']) {
+                    $valor_anterior = $aplicante->$db_field ?? '';
+                    $update_data[$db_field] = $upload_result['url'];
+                    $cambios[] = array(
+                        'campo' => $db_field,
+                        'anterior' => $valor_anterior ? basename($valor_anterior) : '',
+                        'nuevo' => basename($upload_result['url']),
+                    );
+                }
+            }
+        }
+
+        // =====================================================================
+        // EJECUTAR ACTUALIZACIÓN
+        // =====================================================================
+        if (empty($update_data)) {
+            wp_send_json_success(array(
+                'message' => __('No se detectaron cambios en tu perfil.', 'gestionadmin-wolk'),
+            ));
+        }
+
+        // Agregar timestamp
+        $update_data['updated_at'] = current_time('mysql');
+
+        // Actualizar en la base de datos
+        $result = $wpdb->update(
+            $table_aplicantes,
+            $update_data,
+            array('id' => $aplicante_id),
+            null,
+            array('%d')
+        );
+
+        if ($result === false) {
+            wp_send_json_error(array(
+                'message' => __('Error al guardar los cambios. Intenta de nuevo.', 'gestionadmin-wolk'),
+            ));
+        }
+
+        // =====================================================================
+        // REGISTRAR CAMBIOS EN LOG
+        // =====================================================================
+        $ip_address = $this->get_client_ip();
+        $user_agent = sanitize_text_field($_SERVER['HTTP_USER_AGENT'] ?? '');
+
+        foreach ($cambios as $cambio) {
+            $wpdb->insert(
+                $table_log,
+                array(
+                    'tabla'          => 'ga_aplicantes',
+                    'registro_id'    => $aplicante_id,
+                    'campo'          => $cambio['campo'],
+                    'valor_anterior' => $cambio['anterior'],
+                    'valor_nuevo'    => $cambio['nuevo'],
+                    'modificado_por' => $wp_user_id,
+                    'ip_address'     => $ip_address,
+                    'user_agent'     => substr($user_agent, 0, 255),
+                    'accion'         => 'UPDATE',
+                    'created_at'     => current_time('mysql'),
+                ),
+                array('%s', '%d', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s')
+            );
+        }
+
+        // También actualizar display_name en WordPress si cambió el nombre
+        if (isset($update_data['nombre_completo'])) {
+            wp_update_user(array(
+                'ID'           => $wp_user_id,
+                'display_name' => $update_data['nombre_completo'],
+            ));
+        }
+
+        wp_send_json_success(array(
+            'message' => sprintf(
+                __('Perfil actualizado correctamente. Se registraron %d cambios.', 'gestionadmin-wolk'),
+                count($cambios)
+            ),
+        ));
+    }
+
+    /**
+     * Maneja la subida de archivos
+     *
+     * @since 1.17.0
+     *
+     * @param string $field_name Nombre del campo del formulario.
+     * @param int    $user_id    ID del usuario.
+     *
+     * @return array Array con 'success' y 'url' o 'error'.
+     */
+    private function handle_file_upload($field_name, $user_id) {
+        if (!function_exists('wp_handle_upload')) {
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+        }
+
+        $file = $_FILES[$field_name];
+
+        // Validar tamaño (5MB máximo)
+        $max_size = 5 * 1024 * 1024;
+        if ($file['size'] > $max_size) {
+            return array(
+                'success' => false,
+                'error'   => __('El archivo es demasiado grande. Máximo 5MB.', 'gestionadmin-wolk'),
+            );
+        }
+
+        // Validar tipo
+        $allowed_types = array(
+            'application/pdf',
+            'image/jpeg',
+            'image/jpg',
+            'image/png',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        );
+
+        if (!in_array($file['type'], $allowed_types, true)) {
+            return array(
+                'success' => false,
+                'error'   => __('Tipo de archivo no permitido.', 'gestionadmin-wolk'),
+            );
+        }
+
+        // Renombrar archivo para evitar conflictos
+        $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+        $new_name = sprintf('ga_doc_%d_%s_%s.%s', $user_id, $field_name, wp_generate_uuid4(), $ext);
+
+        $upload_overrides = array(
+            'test_form' => false,
+            'unique_filename_callback' => function($dir, $name, $ext) use ($new_name) {
+                return $new_name;
+            },
+        );
+
+        $uploaded = wp_handle_upload($file, $upload_overrides);
+
+        if (isset($uploaded['error'])) {
+            return array(
+                'success' => false,
+                'error'   => $uploaded['error'],
+            );
+        }
+
+        return array(
+            'success' => true,
+            'url'     => $uploaded['url'],
+            'path'    => $uploaded['file'],
+        );
+    }
+
+    /**
+     * Obtiene la IP del cliente
+     *
+     * @since 1.17.0
+     *
+     * @return string IP del cliente.
+     */
+    private function get_client_ip() {
+        $ip_keys = array(
+            'HTTP_CF_CONNECTING_IP', // Cloudflare
+            'HTTP_X_FORWARDED_FOR',
+            'HTTP_X_FORWARDED',
+            'HTTP_X_CLUSTER_CLIENT_IP',
+            'HTTP_FORWARDED_FOR',
+            'HTTP_FORWARDED',
+            'REMOTE_ADDR',
+        );
+
+        foreach ($ip_keys as $key) {
+            if (!empty($_SERVER[$key])) {
+                $ip = $_SERVER[$key];
+                // Si hay múltiples IPs, tomar la primera
+                if (strpos($ip, ',') !== false) {
+                    $ip = explode(',', $ip)[0];
+                }
+                $ip = trim($ip);
+                if (filter_var($ip, FILTER_VALIDATE_IP)) {
+                    return $ip;
+                }
+            }
+        }
+
+        return '0.0.0.0';
     }
 
     // =========================================================================

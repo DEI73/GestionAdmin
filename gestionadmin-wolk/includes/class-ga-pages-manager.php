@@ -127,22 +127,26 @@ class GA_Pages_Manager {
                 'icon'        => 'dashicons-id',
                 'portal'      => 'aplicante',
             ),
-            'mis_pagos' => array(
-                'title'       => __('Mis Pagos', 'gestionadmin-wolk'),
-                'slug'        => 'pagos',
-                'template'    => 'portal-aplicante/mis-pagos.php',
-                'parent'      => 'mi_cuenta',
-                'description' => __('Historial de pagos recibidos', 'gestionadmin-wolk'),
-                'icon'        => 'dashicons-money-alt',
-                'portal'      => 'aplicante',
-            ),
+            // =========================================================================
+            // NOTA: "Mis Pagos" NO aplica para aplicantes
+            // =========================================================================
+            // Los aplicantes NO tienen pagos. Cuando un aplicante es aceptado en una
+            // orden de trabajo, se convierte en EMPLEADO y gestiona sus pagos desde
+            // el Portal Empleado (/empleado/pagos/).
+            //
+            // El archivo mis-pagos.php existe como placeholder que redirige a
+            // /mi-cuenta/aplicaciones/ para evitar errores 404 en enlaces antiguos.
+            // =========================================================================
 
             // =========================================================================
             // PORTAL EMPLEADOS - Trabajadores internos
             // =========================================================================
+            // NOTA: Slug es 'portal-empleado' para coincidir con los templates
+            // existentes que usan /portal-empleado/ en sus enlaces internos
+            // =========================================================================
             'empleado_dashboard' => array(
                 'title'       => __('Portal Empleado', 'gestionadmin-wolk'),
-                'slug'        => 'empleado',
+                'slug'        => 'portal-empleado',
                 'template'    => 'portal-empleado/dashboard.php',
                 'parent'      => null,
                 'description' => __('Dashboard principal del empleado', 'gestionadmin-wolk'),
@@ -151,7 +155,7 @@ class GA_Pages_Manager {
             ),
             'empleado_tareas' => array(
                 'title'       => __('Mis Tareas', 'gestionadmin-wolk'),
-                'slug'        => 'tareas',
+                'slug'        => 'mis-tareas',
                 'template'    => 'portal-empleado/mis-tareas.php',
                 'parent'      => 'empleado_dashboard',
                 'description' => __('Tareas asignadas al empleado', 'gestionadmin-wolk'),
@@ -160,7 +164,7 @@ class GA_Pages_Manager {
             ),
             'empleado_timer' => array(
                 'title'       => __('Mi Timer', 'gestionadmin-wolk'),
-                'slug'        => 'timer',
+                'slug'        => 'mi-timer',
                 'template'    => 'portal-empleado/mi-timer.php',
                 'parent'      => 'empleado_dashboard',
                 'description' => __('Timer para registro de horas', 'gestionadmin-wolk'),
@@ -169,7 +173,7 @@ class GA_Pages_Manager {
             ),
             'empleado_horas' => array(
                 'title'       => __('Mis Horas', 'gestionadmin-wolk'),
-                'slug'        => 'horas',
+                'slug'        => 'mis-horas',
                 'template'    => 'portal-empleado/mis-horas.php',
                 'parent'      => 'empleado_dashboard',
                 'description' => __('Historial de horas trabajadas', 'gestionadmin-wolk'),
@@ -178,7 +182,7 @@ class GA_Pages_Manager {
             ),
             'empleado_perfil' => array(
                 'title'       => __('Mi Perfil', 'gestionadmin-wolk'),
-                'slug'        => 'perfil',
+                'slug'        => 'mi-perfil',
                 'template'    => 'portal-empleado/mi-perfil.php',
                 'parent'      => 'empleado_dashboard',
                 'description' => __('Perfil del empleado', 'gestionadmin-wolk'),

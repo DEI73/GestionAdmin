@@ -84,6 +84,9 @@ class GA_Activator {
         // Crear tablas Sprint 13-14: Catálogos de Configuración
         self::create_metodos_pago_table($wpdb, $charset_collate);
 
+        // Crear tablas Sprint 15: Auditoría y Logs
+        self::create_cambios_log_table($wpdb, $charset_collate);
+
         // Insertar datos iniciales
         self::insert_initial_data($wpdb);
 
@@ -128,18 +131,19 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_departamentos';
 
         $sql = "CREATE TABLE {$table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             codigo VARCHAR(20) NOT NULL UNIQUE,
             nombre VARCHAR(100) NOT NULL,
             descripcion TEXT,
-            tipo ENUM('OPERACION_FIJA', 'PROYECTOS', 'SOPORTE', 'COMERCIAL') DEFAULT 'PROYECTOS',
+            tipo ENUM('OPERACION_FIJA','PROYECTOS','SOPORTE','COMERCIAL') DEFAULT 'PROYECTOS',
             jefe_id BIGINT UNSIGNED,
             activo TINYINT(1) DEFAULT 1,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             INDEX idx_codigo (codigo),
             INDEX idx_activo (activo),
-            INDEX idx_jefe (jefe_id)
+            INDEX idx_jefe (jefe_id),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -152,7 +156,7 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_puestos';
 
         $sql = "CREATE TABLE {$table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             departamento_id INT NOT NULL,
             codigo VARCHAR(20) NOT NULL UNIQUE,
             nombre VARCHAR(100) NOT NULL,
@@ -161,14 +165,15 @@ class GA_Activator {
             reporta_a_puesto_id INT,
             capacidad_horas_semana INT DEFAULT 40,
             requiere_qa TINYINT(1) DEFAULT 0,
-            flujo_revision_default ENUM('SOLO_JEFE', 'QA_JEFE', 'QA_JEFE_DIRECTOR') DEFAULT 'SOLO_JEFE',
+            flujo_revision_default ENUM('SOLO_JEFE','QA_JEFE','QA_JEFE_DIRECTOR') DEFAULT 'SOLO_JEFE',
             activo TINYINT(1) DEFAULT 1,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             INDEX idx_departamento (departamento_id),
             INDEX idx_nivel (nivel_jerarquico),
             INDEX idx_codigo (codigo),
-            INDEX idx_activo (activo)
+            INDEX idx_activo (activo),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -181,7 +186,7 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_puestos_escalas';
 
         $sql = "CREATE TABLE {$table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             puesto_id INT NOT NULL,
             anio_antiguedad INT NOT NULL COMMENT '1, 2, 3, 4, 5+',
             tarifa_hora DECIMAL(10,2) NOT NULL,
@@ -193,7 +198,8 @@ class GA_Activator {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY uk_puesto_anio (puesto_id, anio_antiguedad),
             INDEX idx_puesto (puesto_id),
-            INDEX idx_activo (activo)
+            INDEX idx_activo (activo),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -206,7 +212,7 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_usuarios';
 
         $sql = "CREATE TABLE {$table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             usuario_wp_id BIGINT UNSIGNED NOT NULL UNIQUE,
             puesto_id INT,
             departamento_id INT,
@@ -215,7 +221,7 @@ class GA_Activator {
             nivel_jerarquico INT DEFAULT 4,
             es_jefe_de_jefes TINYINT(1) DEFAULT 0,
             puede_ver_departamentos JSON,
-            metodo_pago_preferido ENUM('BINANCE', 'WISE', 'PAYPAL', 'PAYONEER', 'STRIPE', 'TRANSFERENCIA', 'EFECTIVO') DEFAULT 'TRANSFERENCIA',
+            metodo_pago_preferido ENUM('BINANCE','WISE','PAYPAL','PAYONEER','STRIPE','TRANSFERENCIA','EFECTIVO') DEFAULT 'TRANSFERENCIA',
             datos_pago_binance JSON,
             datos_pago_wise JSON,
             datos_pago_paypal JSON,
@@ -232,7 +238,8 @@ class GA_Activator {
             INDEX idx_puesto (puesto_id),
             INDEX idx_departamento (departamento_id),
             INDEX idx_codigo (codigo_empleado),
-            INDEX idx_activo (activo)
+            INDEX idx_activo (activo),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -245,10 +252,10 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_supervisiones';
 
         $sql = "CREATE TABLE {$table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             supervisor_id BIGINT UNSIGNED NOT NULL,
             supervisado_id BIGINT UNSIGNED NOT NULL,
-            tipo_supervision ENUM('DIRECTA', 'PROYECTO', 'DEPARTAMENTO') DEFAULT 'DIRECTA',
+            tipo_supervision ENUM('DIRECTA','PROYECTO','DEPARTAMENTO') DEFAULT 'DIRECTA',
             proyecto_id INT,
             departamento_id INT,
             fecha_inicio DATE NOT NULL,
@@ -260,7 +267,8 @@ class GA_Activator {
             INDEX idx_supervisor (supervisor_id),
             INDEX idx_supervisado (supervisado_id),
             INDEX idx_tipo (tipo_supervision),
-            INDEX idx_activo (activo)
+            INDEX idx_activo (activo),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -273,7 +281,7 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_paises_config';
 
         $sql = "CREATE TABLE {$table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             codigo_iso VARCHAR(2) NOT NULL UNIQUE,
             nombre VARCHAR(100) NOT NULL,
             moneda_codigo VARCHAR(3) NOT NULL,
@@ -288,7 +296,8 @@ class GA_Activator {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             INDEX idx_codigo (codigo_iso),
-            INDEX idx_activo (activo)
+            INDEX idx_activo (activo),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -463,21 +472,21 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_catalogo_tareas';
 
         $sql = "CREATE TABLE {$table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             codigo VARCHAR(20) NOT NULL UNIQUE,
             nombre VARCHAR(200) NOT NULL,
             descripcion TEXT,
             departamento_id INT,
             puesto_id INT,
             horas_estimadas DECIMAL(10,2),
-            frecuencia ENUM('POR_SOLICITUD', 'DIARIA', 'SEMANAL', 'QUINCENAL', 'MENSUAL', 'TRIMESTRAL', 'SEMESTRAL') DEFAULT 'POR_SOLICITUD',
+            frecuencia ENUM('POR_SOLICITUD','DIARIA','SEMANAL','QUINCENAL','MENSUAL','TRIMESTRAL','SEMESTRAL') DEFAULT 'POR_SOLICITUD',
             frecuencia_dias INT,
             url_instrucciones VARCHAR(500),
             instrucciones_texto TEXT,
-            flujo_revision ENUM('DEFAULT_PUESTO', 'PERSONALIZADO') DEFAULT 'DEFAULT_PUESTO',
-            revisor_tipo ENUM('NINGUNO', 'QA_DEPARTAMENTO', 'USUARIO_ESPECIFICO', 'PAR'),
+            flujo_revision ENUM('DEFAULT_PUESTO','PERSONALIZADO') DEFAULT 'DEFAULT_PUESTO',
+            revisor_tipo ENUM('NINGUNO','QA_DEPARTAMENTO','USUARIO_ESPECIFICO','PAR'),
             revisor_usuario_id BIGINT UNSIGNED,
-            aprobador_tipo ENUM('JEFE_DIRECTO', 'JEFE_DEPARTAMENTO', 'USUARIO_ESPECIFICO', 'AUTO'),
+            aprobador_tipo ENUM('JEFE_DIRECTO','JEFE_DEPARTAMENTO','USUARIO_ESPECIFICO','AUTO'),
             aprobador_usuario_id BIGINT UNSIGNED,
             requiere_segundo_aprobador TINYINT(1) DEFAULT 0,
             segundo_aprobador_nivel INT,
@@ -487,7 +496,8 @@ class GA_Activator {
             INDEX idx_departamento (departamento_id),
             INDEX idx_puesto (puesto_id),
             INDEX idx_codigo (codigo),
-            INDEX idx_activo (activo)
+            INDEX idx_activo (activo),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -500,7 +510,7 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_tareas';
 
         $sql = "CREATE TABLE {$table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             numero VARCHAR(20) NOT NULL UNIQUE,
             catalogo_tarea_id INT,
             nombre VARCHAR(200) NOT NULL,
@@ -516,8 +526,8 @@ class GA_Activator {
             fecha_inicio DATE,
             fecha_limite DATE,
             fecha_completada DATETIME,
-            estado ENUM('PENDIENTE', 'EN_PROGRESO', 'PAUSADA', 'COMPLETADA', 'EN_QA', 'APROBADA_QA', 'EN_REVISION', 'APROBADA', 'RECHAZADA', 'PAGADA', 'CANCELADA') DEFAULT 'PENDIENTE',
-            prioridad ENUM('BAJA', 'MEDIA', 'ALTA', 'URGENTE') DEFAULT 'MEDIA',
+            estado ENUM('PENDIENTE','EN_PROGRESO','PAUSADA','COMPLETADA','EN_QA','APROBADA_QA','EN_REVISION','APROBADA','RECHAZADA','PAGADA','CANCELADA') DEFAULT 'PENDIENTE',
+            prioridad ENUM('BAJA','MEDIA','ALTA','URGENTE') DEFAULT 'MEDIA',
             url_instrucciones VARCHAR(500),
             instrucciones_texto TEXT,
             porcentaje_avance INT DEFAULT 0,
@@ -531,7 +541,8 @@ class GA_Activator {
             INDEX idx_supervisor (supervisor_id),
             INDEX idx_estado (estado),
             INDEX idx_prioridad (prioridad),
-            INDEX idx_fecha_limite (fecha_limite)
+            INDEX idx_fecha_limite (fecha_limite),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -544,7 +555,7 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_subtareas';
 
         $sql = "CREATE TABLE {$table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             tarea_id INT NOT NULL,
             codigo VARCHAR(20),
             nombre VARCHAR(200) NOT NULL,
@@ -552,7 +563,7 @@ class GA_Activator {
             orden INT DEFAULT 0,
             horas_estimadas DECIMAL(10,2),
             horas_reales DECIMAL(10,2) DEFAULT 0,
-            estado ENUM('PENDIENTE', 'EN_PROGRESO', 'COMPLETADA') DEFAULT 'PENDIENTE',
+            estado ENUM('PENDIENTE','EN_PROGRESO','COMPLETADA') DEFAULT 'PENDIENTE',
             fecha_inicio DATETIME,
             fecha_fin DATETIME,
             notas TEXT,
@@ -560,7 +571,8 @@ class GA_Activator {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             INDEX idx_tarea (tarea_id),
             INDEX idx_orden (orden),
-            INDEX idx_estado (estado)
+            INDEX idx_estado (estado),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -573,7 +585,7 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_registro_horas';
 
         $sql = "CREATE TABLE {$table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             usuario_id BIGINT UNSIGNED NOT NULL,
             tarea_id INT NOT NULL,
             subtarea_id INT,
@@ -586,7 +598,7 @@ class GA_Activator {
             minutos_pausas INT DEFAULT 0,
             minutos_efectivos INT DEFAULT 0,
             descripcion TEXT,
-            estado ENUM('ACTIVO', 'BORRADOR', 'ENVIADO', 'EN_QA', 'APROBADO_QA', 'APROBADO', 'RECHAZADO', 'PAGADO') DEFAULT 'ACTIVO',
+            estado ENUM('ACTIVO','BORRADOR','ENVIADO','EN_QA','APROBADO_QA','APROBADO','RECHAZADO','PAGADO') DEFAULT 'ACTIVO',
             aprobado_qa_por BIGINT UNSIGNED,
             fecha_aprobacion_qa DATETIME,
             aprobado_por BIGINT UNSIGNED,
@@ -601,7 +613,8 @@ class GA_Activator {
             INDEX idx_tarea (tarea_id),
             INDEX idx_subtarea (subtarea_id),
             INDEX idx_fecha (fecha),
-            INDEX idx_estado (estado)
+            INDEX idx_estado (estado),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -614,15 +627,16 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_pausas_timer';
 
         $sql = "CREATE TABLE {$table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             registro_hora_id INT NOT NULL,
             hora_pausa DATETIME NOT NULL,
             hora_reanudacion DATETIME,
             minutos INT DEFAULT 0,
-            motivo ENUM('ALMUERZO', 'REUNION', 'EMERGENCIA', 'DESCANSO', 'OTRO') DEFAULT 'OTRO',
+            motivo ENUM('ALMUERZO','REUNION','EMERGENCIA','DESCANSO','OTRO') DEFAULT 'OTRO',
             nota VARCHAR(200),
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            INDEX idx_registro (registro_hora_id)
+            INDEX idx_registro (registro_hora_id),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -646,10 +660,10 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_clientes';
 
         $sql = "CREATE TABLE {$table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             usuario_wp_id BIGINT UNSIGNED UNIQUE COMMENT 'FK wp_users - Para login portal cliente',
             codigo VARCHAR(20) NOT NULL UNIQUE COMMENT 'Formato: CLI-001',
-            tipo ENUM('PERSONA_NATURAL', 'EMPRESA') DEFAULT 'EMPRESA',
+            tipo ENUM('PERSONA_NATURAL','EMPRESA') DEFAULT 'EMPRESA',
             nombre_comercial VARCHAR(200) NOT NULL COMMENT 'Nombre comercial o nombre completo',
             razon_social VARCHAR(200) COMMENT 'Razón social legal (si es empresa)',
             documento_tipo VARCHAR(20) COMMENT 'Tipo: NIT, CC, RFC, EIN, etc.',
@@ -667,7 +681,7 @@ class GA_Activator {
             contacto_telefono VARCHAR(50) COMMENT 'Teléfono del contacto',
             stripe_customer_id VARCHAR(50) COMMENT 'ID de cliente en Stripe',
             paypal_email VARCHAR(200) COMMENT 'Email de PayPal del cliente',
-            metodo_pago_preferido ENUM('TRANSFERENCIA', 'STRIPE', 'PAYPAL', 'EFECTIVO') DEFAULT 'TRANSFERENCIA',
+            metodo_pago_preferido ENUM('TRANSFERENCIA','STRIPE','PAYPAL','EFECTIVO') DEFAULT 'TRANSFERENCIA',
             notas TEXT COMMENT 'Notas internas sobre el cliente',
             activo TINYINT(1) DEFAULT 1,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -675,7 +689,8 @@ class GA_Activator {
             INDEX idx_codigo (codigo),
             INDEX idx_pais (pais),
             INDEX idx_activo (activo),
-            INDEX idx_tipo (tipo)
+            INDEX idx_tipo (tipo),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -695,14 +710,14 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_casos';
 
         $sql = "CREATE TABLE {$table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             numero VARCHAR(30) NOT NULL UNIQUE COMMENT 'Formato: CASO-CLI001-2024-0001',
             cliente_id INT NOT NULL COMMENT 'FK a wp_ga_clientes',
             titulo VARCHAR(200) NOT NULL COMMENT 'Título descriptivo del caso',
             descripcion TEXT COMMENT 'Descripción detallada del caso',
-            tipo ENUM('PROYECTO', 'LEGAL', 'SOPORTE', 'CONSULTORIA', 'OTRO') DEFAULT 'PROYECTO',
-            estado ENUM('ABIERTO', 'EN_PROGRESO', 'EN_ESPERA', 'CERRADO', 'CANCELADO') DEFAULT 'ABIERTO',
-            prioridad ENUM('BAJA', 'MEDIA', 'ALTA', 'URGENTE') DEFAULT 'MEDIA',
+            tipo ENUM('PROYECTO','LEGAL','SOPORTE','CONSULTORIA','OTRO') DEFAULT 'PROYECTO',
+            estado ENUM('ABIERTO','EN_PROGRESO','EN_ESPERA','CERRADO','CANCELADO') DEFAULT 'ABIERTO',
+            prioridad ENUM('BAJA','MEDIA','ALTA','URGENTE') DEFAULT 'MEDIA',
             fecha_apertura DATE NOT NULL COMMENT 'Fecha de apertura del caso',
             fecha_cierre_estimada DATE COMMENT 'Fecha estimada de cierre',
             fecha_cierre_real DATETIME COMMENT 'Fecha real de cierre',
@@ -718,7 +733,8 @@ class GA_Activator {
             INDEX idx_estado (estado),
             INDEX idx_prioridad (prioridad),
             INDEX idx_responsable (responsable_id),
-            INDEX idx_fecha_apertura (fecha_apertura)
+            INDEX idx_fecha_apertura (fecha_apertura),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -738,7 +754,7 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_proyectos';
 
         $sql = "CREATE TABLE {$table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             caso_id INT NOT NULL COMMENT 'FK a wp_ga_casos',
             codigo VARCHAR(20) NOT NULL UNIQUE COMMENT 'Formato: PRY-001',
             nombre VARCHAR(200) NOT NULL COMMENT 'Nombre del proyecto',
@@ -746,7 +762,7 @@ class GA_Activator {
             fecha_inicio DATE COMMENT 'Fecha de inicio planificada',
             fecha_fin_estimada DATE COMMENT 'Fecha de fin estimada',
             fecha_fin_real DATE COMMENT 'Fecha de fin real',
-            estado ENUM('PLANIFICACION', 'EN_PROGRESO', 'PAUSADO', 'COMPLETADO', 'CANCELADO') DEFAULT 'PLANIFICACION',
+            estado ENUM('PLANIFICACION','EN_PROGRESO','PAUSADO','COMPLETADO','CANCELADO') DEFAULT 'PLANIFICACION',
             responsable_id BIGINT UNSIGNED COMMENT 'Usuario WP responsable del proyecto',
             presupuesto_horas INT COMMENT 'Horas presupuestadas',
             presupuesto_dinero DECIMAL(12,2) COMMENT 'Monto presupuestado en USD',
@@ -764,7 +780,8 @@ class GA_Activator {
             INDEX idx_caso (caso_id),
             INDEX idx_estado (estado),
             INDEX idx_responsable (responsable_id),
-            INDEX idx_fecha_inicio (fecha_inicio)
+            INDEX idx_fecha_inicio (fecha_inicio),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -808,97 +825,47 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_aplicantes';
 
         $sql = "CREATE TABLE {$table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * IDENTIFICACIÓN Y ACCESO
-             * ───────────────────────────────────────────────────────────────── */
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             usuario_wp_id BIGINT UNSIGNED UNIQUE COMMENT 'FK wp_users - Login portal aplicantes',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * TIPO DE APLICANTE
-             * - PERSONA_NATURAL: Freelancer individual
-             * - EMPRESA: Consultora, agencia, empresa de servicios
-             * ───────────────────────────────────────────────────────────────── */
-            tipo ENUM('PERSONA_NATURAL', 'EMPRESA') DEFAULT 'PERSONA_NATURAL',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * DATOS PERSONALES / EMPRESARIALES
-             * ───────────────────────────────────────────────────────────────── */
+            tipo ENUM('PERSONA_NATURAL','EMPRESA') DEFAULT 'PERSONA_NATURAL',
             nombre_completo VARCHAR(200) NOT NULL COMMENT 'Nombre persona o razón social empresa',
             nombre_comercial VARCHAR(200) COMMENT 'Nombre comercial (solo empresas)',
             documento_tipo VARCHAR(20) COMMENT 'CC, NIT, RFC, EIN, PASAPORTE',
             documento_numero VARCHAR(50) COMMENT 'Número de identificación',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * CONTACTO
-             * ───────────────────────────────────────────────────────────────── */
             email VARCHAR(200) NOT NULL COMMENT 'Email principal de contacto',
             telefono VARCHAR(50) COMMENT 'Teléfono con código país',
             pais VARCHAR(2) COMMENT 'Código ISO del país de residencia',
             ciudad VARCHAR(100) COMMENT 'Ciudad de residencia',
             direccion TEXT COMMENT 'Dirección completa',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * PERFIL PROFESIONAL
-             * - habilidades: JSON con array de skills (ej: PHP, WordPress, React)
-             * - experiencia_anios: Años de experiencia profesional
-             * - portafolio_url: Link a portafolio o LinkedIn
-             * - cv_url: Link al CV/Hoja de vida subido
-             * ───────────────────────────────────────────────────────────────── */
             habilidades JSON COMMENT 'Array de habilidades/skills',
             experiencia_anios INT DEFAULT 0 COMMENT 'Años de experiencia',
             portafolio_url VARCHAR(500) COMMENT 'URL portafolio o LinkedIn',
             cv_url VARCHAR(500) COMMENT 'URL del CV subido',
             descripcion_perfil TEXT COMMENT 'Descripción/bio del aplicante',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * DATOS DE PAGO
-             * Cuando el aplicante es contratado, necesitamos saber cómo pagarle
-             * ───────────────────────────────────────────────────────────────── */
-            metodo_pago_preferido ENUM('BINANCE', 'WISE', 'PAYPAL', 'PAYONEER', 'STRIPE', 'TRANSFERENCIA') DEFAULT 'TRANSFERENCIA',
+            metodo_pago_preferido ENUM('BINANCE','WISE','PAYPAL','PAYONEER','STRIPE','TRANSFERENCIA') DEFAULT 'TRANSFERENCIA',
             datos_pago_binance JSON COMMENT 'Datos Binance Pay',
             datos_pago_wise JSON COMMENT 'Datos Wise/TransferWise',
             datos_pago_paypal JSON COMMENT 'Email PayPal',
             datos_pago_banco JSON COMMENT 'Datos bancarios para transferencia',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * DOCUMENTOS REQUERIDOS (URLs a archivos subidos)
-             * ───────────────────────────────────────────────────────────────── */
             documento_identidad_url VARCHAR(500) COMMENT 'Scan de documento de identidad',
             rut_url VARCHAR(500) COMMENT 'RUT/RFC/Documento fiscal',
             certificado_bancario_url VARCHAR(500) COMMENT 'Certificación bancaria',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ESTADO Y VERIFICACIÓN
-             * ───────────────────────────────────────────────────────────────── */
-            estado ENUM('PENDIENTE_VERIFICACION', 'VERIFICADO', 'RECHAZADO', 'SUSPENDIDO') DEFAULT 'PENDIENTE_VERIFICACION',
+            estado ENUM('PENDIENTE_VERIFICACION','VERIFICADO','RECHAZADO','SUSPENDIDO') DEFAULT 'PENDIENTE_VERIFICACION',
             fecha_verificacion DATETIME COMMENT 'Cuándo fue verificado',
             verificado_por BIGINT UNSIGNED COMMENT 'Quién verificó',
             notas_verificacion TEXT COMMENT 'Notas del proceso de verificación',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ESTADÍSTICAS (se actualizan automáticamente)
-             * ───────────────────────────────────────────────────────────────── */
             total_aplicaciones INT DEFAULT 0 COMMENT 'Total de aplicaciones realizadas',
             aplicaciones_aceptadas INT DEFAULT 0 COMMENT 'Aplicaciones aceptadas',
             calificacion_promedio DECIMAL(3,2) DEFAULT 0 COMMENT 'Rating promedio 0-5',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * AUDITORÍA
-             * ───────────────────────────────────────────────────────────────── */
             activo TINYINT(1) DEFAULT 1,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ÍNDICES para optimizar búsquedas frecuentes
-             * ───────────────────────────────────────────────────────────────── */
             INDEX idx_usuario_wp (usuario_wp_id),
             INDEX idx_tipo (tipo),
             INDEX idx_estado (estado),
             INDEX idx_pais (pais),
-            INDEX idx_activo (activo)
+            INDEX idx_activo (activo),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -924,11 +891,11 @@ class GA_Activator {
      * CICLO DE VIDA DE UNA ORDEN:
      * =========================================================================
      *
-     *   BORRADOR ──► PUBLICADA ──► ASIGNADA ──► EN_PROGRESO ──► COMPLETADA
+     *   BORRADOR --► PUBLICADA --► ASIGNADA --► EN_PROGRESO --► COMPLETADA
      *       │            │            │
-     *       │            │            └──► CANCELADA
-     *       │            └──► CERRADA (sin asignar)
-     *       └──► CANCELADA
+     *       │            │            └--► CANCELADA
+     *       │            └--► CERRADA (sin asignar)
+     *       └--► CANCELADA
      *
      * =========================================================================
      * RELACIONES:
@@ -945,117 +912,46 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_ordenes_trabajo';
 
         $sql = "CREATE TABLE {$table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * IDENTIFICACIÓN
-             * El código se genera automáticamente: OT-2024-0001
-             * ───────────────────────────────────────────────────────────────── */
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             codigo VARCHAR(20) NOT NULL UNIQUE COMMENT 'Formato: OT-YYYY-NNNN',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * INFORMACIÓN BÁSICA DE LA ORDEN
-             * ───────────────────────────────────────────────────────────────── */
             titulo VARCHAR(200) NOT NULL COMMENT 'Título descriptivo de la orden',
             descripcion TEXT COMMENT 'Descripción detallada del trabajo requerido',
             requisitos TEXT COMMENT 'Requisitos específicos para aplicar',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * CATEGORIZACIÓN
-             * ───────────────────────────────────────────────────────────────── */
-            categoria ENUM('DESARROLLO', 'DISENO', 'MARKETING', 'LEGAL', 'CONTABILIDAD', 'ADMINISTRATIVO', 'SOPORTE', 'CONSULTORIA', 'OTRO') DEFAULT 'OTRO',
+            categoria ENUM('DESARROLLO','DISENO','MARKETING','LEGAL','CONTABILIDAD','ADMINISTRATIVO','SOPORTE','CONSULTORIA','OTRO') DEFAULT 'OTRO',
             departamento_id INT COMMENT 'FK departamento que solicita',
             puesto_requerido_id INT COMMENT 'FK puesto/perfil requerido',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * CONDICIONES ECONÓMICAS
-             * - tipo_pago: Si es por hora o precio fijo
-             * - tarifa_hora: Tarifa ofrecida por hora (si aplica)
-             * - presupuesto_fijo: Monto fijo del proyecto (si aplica)
-             * - tarifa_negociable: Si el aplicante puede proponer otra tarifa
-             * ───────────────────────────────────────────────────────────────── */
-            tipo_pago ENUM('POR_HORA', 'PRECIO_FIJO', 'A_CONVENIR') DEFAULT 'POR_HORA',
+            tipo_pago ENUM('POR_HORA','PRECIO_FIJO','A_CONVENIR') DEFAULT 'POR_HORA',
             tarifa_hora_min DECIMAL(10,2) COMMENT 'Tarifa mínima por hora (USD)',
             tarifa_hora_max DECIMAL(10,2) COMMENT 'Tarifa máxima por hora (USD)',
             presupuesto_fijo DECIMAL(12,2) COMMENT 'Presupuesto fijo total (USD)',
             tarifa_negociable TINYINT(1) DEFAULT 1 COMMENT '1=Acepta propuestas de tarifa',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * DURACIÓN Y DEDICACIÓN
-             * ───────────────────────────────────────────────────────────────── */
             horas_estimadas INT COMMENT 'Horas estimadas totales',
             duracion_estimada VARCHAR(100) COMMENT 'Ej: 2 semanas, 1 mes',
-            dedicacion ENUM('TIEMPO_COMPLETO', 'MEDIO_TIEMPO', 'POR_HORAS', 'PROYECTO') DEFAULT 'POR_HORAS',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * FECHAS IMPORTANTES
-             * ───────────────────────────────────────────────────────────────── */
+            dedicacion ENUM('TIEMPO_COMPLETO','MEDIO_TIEMPO','POR_HORAS','PROYECTO') DEFAULT 'POR_HORAS',
             fecha_publicacion DATE COMMENT 'Cuándo se publicó en el portal',
             fecha_cierre_aplicaciones DATE COMMENT 'Hasta cuándo se reciben aplicaciones',
             fecha_inicio_estimada DATE COMMENT 'Cuándo debería iniciar el trabajo',
             fecha_fin_estimada DATE COMMENT 'Cuándo debería terminar',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * CONTROL DE APLICACIONES
-             * ───────────────────────────────────────────────────────────────── */
             max_aplicantes INT DEFAULT 0 COMMENT '0=Sin límite, >0=Límite de aplicaciones',
             total_aplicantes INT DEFAULT 0 COMMENT 'Contador de aplicaciones (se actualiza)',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ESTADO DE LA ORDEN
-             * ───────────────────────────────────────────────────────────────── */
-            estado ENUM('BORRADOR', 'PUBLICADA', 'CERRADA', 'ASIGNADA', 'EN_PROGRESO', 'COMPLETADA', 'CANCELADA') DEFAULT 'BORRADOR',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * UBICACIÓN Y MODALIDAD
-             * ───────────────────────────────────────────────────────────────── */
-            modalidad ENUM('REMOTO', 'PRESENCIAL', 'HIBRIDO') DEFAULT 'REMOTO',
+            estado ENUM('BORRADOR','PUBLICADA','CERRADA','ASIGNADA','EN_PROGRESO','COMPLETADA','CANCELADA') DEFAULT 'BORRADOR',
+            modalidad ENUM('REMOTO','PRESENCIAL','HIBRIDO') DEFAULT 'REMOTO',
             ubicacion VARCHAR(200) COMMENT 'Ubicación si es presencial/híbrido',
             zona_horaria VARCHAR(50) COMMENT 'Zona horaria requerida, ej: America/Bogota',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * VINCULACIÓN CON PROYECTOS/CASOS (opcional)
-             * Si la orden es para un proyecto específico de un cliente
-             * ───────────────────────────────────────────────────────────────── */
             caso_id INT COMMENT 'FK wp_ga_casos (si aplica)',
             proyecto_id INT COMMENT 'FK wp_ga_proyectos (si aplica)',
             cliente_id INT COMMENT 'FK wp_ga_clientes (si es para cliente)',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * RESPONSABLE INTERNO
-             * ───────────────────────────────────────────────────────────────── */
             responsable_id BIGINT UNSIGNED COMMENT 'Usuario WP que gestiona la orden',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * CONFIGURACIÓN DE VISIBILIDAD
-             * ───────────────────────────────────────────────────────────────── */
             es_publica TINYINT(1) DEFAULT 1 COMMENT '1=Visible en portal público',
             requiere_nda TINYINT(1) DEFAULT 0 COMMENT '1=Requiere firmar NDA para ver detalles',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * HABILIDADES REQUERIDAS (JSON array)
-             * Ejemplo: (PHP, WordPress, MySQL, React)
-             * ───────────────────────────────────────────────────────────────── */
             habilidades_requeridas JSON COMMENT 'Array de skills requeridos',
             experiencia_minima INT DEFAULT 0 COMMENT 'Años mínimos de experiencia',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ARCHIVOS ADJUNTOS
-             * ───────────────────────────────────────────────────────────────── */
             archivos_adjuntos JSON COMMENT 'Array de URLs de archivos adjuntos',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * AUDITORÍA
-             * ───────────────────────────────────────────────────────────────── */
             notas_internas TEXT COMMENT 'Notas solo visibles para admin',
             activo TINYINT(1) DEFAULT 1,
             created_by BIGINT UNSIGNED COMMENT 'Quién creó la orden',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ÍNDICES para búsquedas frecuentes
-             * ───────────────────────────────────────────────────────────────── */
             INDEX idx_codigo (codigo),
             INDEX idx_estado (estado),
             INDEX idx_categoria (categoria),
@@ -1063,7 +959,8 @@ class GA_Activator {
             INDEX idx_fecha_pub (fecha_publicacion),
             INDEX idx_responsable (responsable_id),
             INDEX idx_es_publica (es_publica),
-            INDEX idx_activo (activo)
+            INDEX idx_activo (activo),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -1082,12 +979,12 @@ class GA_Activator {
      * CICLO DE VIDA DE UNA APLICACIÓN:
      * =========================================================================
      *
-     *   PENDIENTE ──► EN_REVISION ──► PRESELECCIONADO ──► ACEPTADA ──► CONTRATADO
+     *   PENDIENTE --► EN_REVISION --► PRESELECCIONADO --► ACEPTADA --► CONTRATADO
      *       │              │               │                  │
-     *       │              │               │                  └──► RECHAZADA_POST
-     *       │              │               └──► RECHAZADA
-     *       │              └──► RECHAZADA
-     *       └──► RECHAZADA
+     *       │              │               │                  └--► RECHAZADA_POST
+     *       │              │               └--► RECHAZADA
+     *       │              └--► RECHAZADA
+     *       └--► RECHAZADA
      *
      * =========================================================================
      * RELACIONES:
@@ -1109,91 +1006,33 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_aplicaciones_orden';
 
         $sql = "CREATE TABLE {$table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * RELACIONES PRINCIPALES
-             * ───────────────────────────────────────────────────────────────── */
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             orden_trabajo_id INT NOT NULL COMMENT 'FK wp_ga_ordenes_trabajo',
             aplicante_id INT NOT NULL COMMENT 'FK wp_ga_aplicantes',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * DATOS DE LA APLICACIÓN
-             * Lo que el aplicante envía al aplicar
-             * ───────────────────────────────────────────────────────────────── */
             fecha_aplicacion DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'Cuándo aplicó',
             carta_presentacion TEXT COMMENT 'Mensaje/propuesta del aplicante',
             tarifa_solicitada DECIMAL(10,2) COMMENT 'Tarifa que propone el aplicante',
             disponibilidad VARCHAR(200) COMMENT 'Ej: Inmediata, En 2 semanas',
             horas_disponibles_semana INT COMMENT 'Horas que puede dedicar por semana',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ARCHIVOS ADICIONALES
-             * El aplicante puede adjuntar documentos específicos para esta orden
-             * ───────────────────────────────────────────────────────────────── */
             archivos_adjuntos JSON COMMENT 'URLs de archivos adjuntos a la aplicación',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ESTADO DE LA APLICACIÓN
-             * ───────────────────────────────────────────────────────────────── */
-            estado ENUM(
-                'PENDIENTE',        /* Recién aplicó, sin revisar */
-                'EN_REVISION',      /* Alguien está revisando */
-                'PRESELECCIONADO',  /* Pasó primera revisión */
-                'ENTREVISTA',       /* Citado a entrevista */
-                'ACEPTADA',         /* Aceptado para el trabajo */
-                'RECHAZADA',        /* No seleccionado */
-                'CONTRATADO',       /* Ya se generó contrato */
-                'RETIRADA'          /* El aplicante retiró su aplicación */
-            ) DEFAULT 'PENDIENTE',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * EVALUACIÓN POR PARTE DE LA EMPRESA
-             * ───────────────────────────────────────────────────────────────── */
+            estado ENUM('PENDIENTE','EN_REVISION','PRESELECCIONADO','ENTREVISTA','ACEPTADA','RECHAZADA','CONTRATADO','RETIRADA') DEFAULT 'PENDIENTE',
             puntuacion INT COMMENT 'Puntuación interna 1-10',
             notas_evaluacion TEXT COMMENT 'Notas del evaluador',
             evaluado_por BIGINT UNSIGNED COMMENT 'Usuario WP que evaluó',
             fecha_evaluacion DATETIME COMMENT 'Cuándo se evaluó',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * MOTIVO DE RECHAZO (si aplica)
-             * ───────────────────────────────────────────────────────────────── */
-            motivo_rechazo ENUM(
-                'PERFIL_NO_ADECUADO',
-                'TARIFA_ALTA',
-                'DISPONIBILIDAD',
-                'DOCUMENTOS_INCOMPLETOS',
-                'OTRO_CANDIDATO',
-                'ORDEN_CANCELADA',
-                'OTRO'
-            ) COMMENT 'Razón del rechazo',
+            motivo_rechazo ENUM('PERFIL_NO_ADECUADO','TARIFA_ALTA','DISPONIBILIDAD','DOCUMENTOS_INCOMPLETOS','OTRO_CANDIDATO','ORDEN_CANCELADA','OTRO') COMMENT 'Razón del rechazo',
             detalle_rechazo TEXT COMMENT 'Explicación adicional del rechazo',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * CONTRATACIÓN (cuando se acepta)
-             * ───────────────────────────────────────────────────────────────── */
             contrato_generado_id INT COMMENT 'FK wp_ga_contratos_trabajo (si se generó)',
             fecha_contratacion DATETIME COMMENT 'Cuándo se formalizó la contratación',
             tarifa_acordada DECIMAL(10,2) COMMENT 'Tarifa final acordada',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * AUDITORÍA
-             * ───────────────────────────────────────────────────────────────── */
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * CONSTRAINT: Un aplicante solo puede aplicar una vez por orden
-             * ───────────────────────────────────────────────────────────────── */
             UNIQUE KEY uk_orden_aplicante (orden_trabajo_id, aplicante_id),
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ÍNDICES para búsquedas frecuentes
-             * ───────────────────────────────────────────────────────────────── */
             INDEX idx_orden (orden_trabajo_id),
             INDEX idx_aplicante (aplicante_id),
             INDEX idx_estado (estado),
-            INDEX idx_fecha (fecha_aplicacion)
+            INDEX idx_fecha (fecha_aplicacion),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -1286,14 +1125,20 @@ class GA_Activator {
     private static function migration_add_url_manual_ordenes($wpdb) {
         $table = $wpdb->prefix . 'ga_ordenes_trabajo';
 
+        // Verificar si la tabla existe
+        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '{$table}'");
+        if (!$table_exists) {
+            return;
+        }
+
         // Verificar si la columna ya existe
         $column_exists = $wpdb->get_results("SHOW COLUMNS FROM {$table} LIKE 'url_manual'");
 
         if (empty($column_exists)) {
+            // No usar AFTER - dejar que MySQL la añada al final
             $wpdb->query(
                 "ALTER TABLE {$table}
-                 ADD COLUMN url_manual VARCHAR(500) NULL COMMENT 'URL del manual/documento del puesto'
-                 AFTER requisitos"
+                 ADD COLUMN url_manual VARCHAR(500) NULL COMMENT 'URL del manual/documento del puesto'"
             );
         }
     }
@@ -1310,14 +1155,20 @@ class GA_Activator {
     private static function migration_add_metodo_pago_clientes($wpdb) {
         $table = $wpdb->prefix . 'ga_clientes';
 
+        // Verificar si la tabla existe
+        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '{$table}'");
+        if (!$table_exists) {
+            return;
+        }
+
         // Verificar si la columna ya existe
         $column_exists = $wpdb->get_results("SHOW COLUMNS FROM {$table} LIKE 'metodo_pago_id'");
 
         if (empty($column_exists)) {
+            // No usar AFTER - dejar que MySQL la añada al final
             $wpdb->query(
                 "ALTER TABLE {$table}
-                 ADD COLUMN metodo_pago_id BIGINT UNSIGNED NULL COMMENT 'FK wp_ga_metodos_pago - Método de pago preferido'
-                 AFTER pais"
+                 ADD COLUMN metodo_pago_id BIGINT UNSIGNED NULL COMMENT 'FK wp_ga_metodos_pago - Método de pago preferido'"
             );
         }
     }
@@ -1333,14 +1184,20 @@ class GA_Activator {
     private static function migration_add_url_logo_clientes($wpdb) {
         $table = $wpdb->prefix . 'ga_clientes';
 
+        // Verificar si la tabla existe
+        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '{$table}'");
+        if (!$table_exists) {
+            return;
+        }
+
         // Verificar si la columna ya existe
         $column_exists = $wpdb->get_results("SHOW COLUMNS FROM {$table} LIKE 'url_logo'");
 
         if (empty($column_exists)) {
+            // No usar AFTER - dejar que MySQL la añada al final
             $wpdb->query(
                 "ALTER TABLE {$table}
-                 ADD COLUMN url_logo VARCHAR(500) NULL COMMENT 'URL del logo del cliente'
-                 AFTER sitio_web"
+                 ADD COLUMN url_logo VARCHAR(500) NULL COMMENT 'URL del logo del cliente'"
             );
         }
     }
@@ -1396,15 +1253,19 @@ class GA_Activator {
     private static function migration_add_empresa_id_ordenes($wpdb) {
         $table_ordenes = $wpdb->prefix . 'ga_ordenes_trabajo';
 
+        // Verificar si la tabla existe
+        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '{$table_ordenes}'");
+        if (!$table_exists) {
+            return;
+        }
+
         // Verificar si la columna ya existe
-        $column_exists = $wpdb->get_results($wpdb->prepare(
-            "SHOW COLUMNS FROM {$table_ordenes} LIKE %s",
-            'empresa_id'
-        ));
+        $column_exists = $wpdb->get_results("SHOW COLUMNS FROM {$table_ordenes} LIKE 'empresa_id'");
 
         // Solo agregar si no existe
         if (empty($column_exists)) {
-            $wpdb->query("ALTER TABLE {$table_ordenes} ADD COLUMN empresa_id INT COMMENT 'FK wp_ga_empresas - Empresa pagadora' AFTER cliente_id");
+            // No usar AFTER - dejar que MySQL la añada al final
+            $wpdb->query("ALTER TABLE {$table_ordenes} ADD COLUMN empresa_id INT COMMENT 'FK wp_ga_empresas - Empresa pagadora'");
             $wpdb->query("ALTER TABLE {$table_ordenes} ADD INDEX idx_empresa (empresa_id)");
         }
     }
@@ -1424,177 +1285,89 @@ class GA_Activator {
         $table_tareas = $wpdb->prefix . 'ga_tareas';
         $table_subtareas = $wpdb->prefix . 'ga_subtareas';
 
+        // Verificar si las tablas existen
+        $tareas_exists = $wpdb->get_var("SHOW TABLES LIKE '{$table_tareas}'");
+        $subtareas_exists = $wpdb->get_var("SHOW TABLES LIKE '{$table_subtareas}'");
+
+        if (!$tareas_exists || !$subtareas_exists) {
+            return; // Las tablas no existen aún, salir
+        }
+
         // =====================================================================
         // MIGRACIÓN TABLA TAREAS: horas_estimadas → minutos_estimados
         // =====================================================================
 
-        // Verificar si la columna vieja existe
-        $columna_horas_tareas = $wpdb->get_results(
-            "SHOW COLUMNS FROM {$table_tareas} LIKE 'horas_estimadas'"
-        );
+        // Verificar estado actual de columnas en tareas
+        $tiene_horas_estimadas = !empty($wpdb->get_results("SHOW COLUMNS FROM {$table_tareas} LIKE 'horas_estimadas'"));
+        $tiene_minutos_estimados = !empty($wpdb->get_results("SHOW COLUMNS FROM {$table_tareas} LIKE 'minutos_estimados'"));
 
-        if (!empty($columna_horas_tareas)) {
-            // 1. Crear nueva columna minutos_estimados
-            $wpdb->query(
-                "ALTER TABLE {$table_tareas}
-                 ADD COLUMN minutos_estimados INT DEFAULT 60 COMMENT 'Tiempo estimado en MINUTOS'
-                 AFTER descripcion"
-            );
-
-            // 2. Migrar datos: convertir horas a minutos (x60)
-            $wpdb->query(
-                "UPDATE {$table_tareas}
-                 SET minutos_estimados = ROUND(COALESCE(horas_estimadas, 1) * 60)
-                 WHERE minutos_estimados IS NULL OR minutos_estimados = 60"
-            );
-
-            // 3. Eliminar columna vieja
+        if ($tiene_horas_estimadas && !$tiene_minutos_estimados) {
+            // Caso: Migrar de horas a minutos
+            $wpdb->query("ALTER TABLE {$table_tareas} ADD COLUMN minutos_estimados INT DEFAULT 60 COMMENT 'Tiempo estimado en MINUTOS'");
+            $wpdb->query("UPDATE {$table_tareas} SET minutos_estimados = ROUND(COALESCE(horas_estimadas, 1) * 60)");
             $wpdb->query("ALTER TABLE {$table_tareas} DROP COLUMN horas_estimadas");
+        } elseif (!$tiene_horas_estimadas && !$tiene_minutos_estimados) {
+            // Caso: Tabla nueva sin ninguna columna
+            $wpdb->query("ALTER TABLE {$table_tareas} ADD COLUMN minutos_estimados INT DEFAULT 60 COMMENT 'Tiempo estimado en MINUTOS'");
         }
-
-        // Verificar si ya existe minutos_estimados pero con otro default
-        $columna_minutos_tareas = $wpdb->get_results(
-            "SHOW COLUMNS FROM {$table_tareas} LIKE 'minutos_estimados'"
-        );
-
-        // Si no existe la columna minutos_estimados, crearla
-        if (empty($columna_minutos_tareas)) {
-            $wpdb->query(
-                "ALTER TABLE {$table_tareas}
-                 ADD COLUMN minutos_estimados INT DEFAULT 60 COMMENT 'Tiempo estimado en MINUTOS'
-                 AFTER descripcion"
-            );
-        }
+        // Si ya tiene minutos_estimados, no hacer nada
 
         // =====================================================================
         // MIGRACIÓN TABLA SUBTAREAS: horas_estimadas → minutos_estimados
         // =====================================================================
 
-        $columna_horas_subtareas = $wpdb->get_results(
-            "SHOW COLUMNS FROM {$table_subtareas} LIKE 'horas_estimadas'"
-        );
+        $tiene_horas_sub = !empty($wpdb->get_results("SHOW COLUMNS FROM {$table_subtareas} LIKE 'horas_estimadas'"));
+        $tiene_minutos_sub = !empty($wpdb->get_results("SHOW COLUMNS FROM {$table_subtareas} LIKE 'minutos_estimados'"));
 
-        if (!empty($columna_horas_subtareas)) {
-            // 1. Crear nueva columna minutos_estimados
-            $wpdb->query(
-                "ALTER TABLE {$table_subtareas}
-                 ADD COLUMN minutos_estimados INT DEFAULT 15 COMMENT 'Tiempo estimado en MINUTOS'
-                 AFTER nombre"
-            );
-
-            // 2. Migrar datos: convertir horas a minutos (x60)
-            $wpdb->query(
-                "UPDATE {$table_subtareas}
-                 SET minutos_estimados = ROUND(COALESCE(horas_estimadas, 0.25) * 60)
-                 WHERE minutos_estimados IS NULL OR minutos_estimados = 15"
-            );
-
-            // 3. Eliminar columna vieja
+        if ($tiene_horas_sub && !$tiene_minutos_sub) {
+            $wpdb->query("ALTER TABLE {$table_subtareas} ADD COLUMN minutos_estimados INT DEFAULT 15 COMMENT 'Tiempo estimado en MINUTOS'");
+            $wpdb->query("UPDATE {$table_subtareas} SET minutos_estimados = ROUND(COALESCE(horas_estimadas, 0.25) * 60)");
             $wpdb->query("ALTER TABLE {$table_subtareas} DROP COLUMN horas_estimadas");
-        }
-
-        // Si no existe la columna minutos_estimados en subtareas, crearla
-        $columna_minutos_subtareas = $wpdb->get_results(
-            "SHOW COLUMNS FROM {$table_subtareas} LIKE 'minutos_estimados'"
-        );
-
-        if (empty($columna_minutos_subtareas)) {
-            $wpdb->query(
-                "ALTER TABLE {$table_subtareas}
-                 ADD COLUMN minutos_estimados INT DEFAULT 15 COMMENT 'Tiempo estimado en MINUTOS'
-                 AFTER nombre"
-            );
+        } elseif (!$tiene_horas_sub && !$tiene_minutos_sub) {
+            $wpdb->query("ALTER TABLE {$table_subtareas} ADD COLUMN minutos_estimados INT DEFAULT 15 COMMENT 'Tiempo estimado en MINUTOS'");
         }
 
         // =====================================================================
         // AGREGAR COLUMNA DESCRIPCION A SUBTAREAS
         // =====================================================================
 
-        $columna_descripcion = $wpdb->get_results(
-            "SHOW COLUMNS FROM {$table_subtareas} LIKE 'descripcion'"
-        );
-
-        if (empty($columna_descripcion)) {
-            $wpdb->query(
-                "ALTER TABLE {$table_subtareas}
-                 ADD COLUMN descripcion TEXT NULL COMMENT 'Descripción/instrucciones de la subtarea'
-                 AFTER nombre"
-            );
+        $tiene_descripcion = !empty($wpdb->get_results("SHOW COLUMNS FROM {$table_subtareas} LIKE 'descripcion'"));
+        if (!$tiene_descripcion) {
+            $wpdb->query("ALTER TABLE {$table_subtareas} ADD COLUMN descripcion TEXT NULL COMMENT 'Descripción/instrucciones de la subtarea'");
         }
 
         // =====================================================================
         // MIGRACIÓN TAREAS: horas_reales → minutos_reales
         // =====================================================================
 
-        $columna_horas_reales = $wpdb->get_results(
-            "SHOW COLUMNS FROM {$table_tareas} LIKE 'horas_reales'"
-        );
+        $tiene_horas_reales = !empty($wpdb->get_results("SHOW COLUMNS FROM {$table_tareas} LIKE 'horas_reales'"));
+        $tiene_minutos_reales = !empty($wpdb->get_results("SHOW COLUMNS FROM {$table_tareas} LIKE 'minutos_reales'"));
 
-        if (!empty($columna_horas_reales)) {
-            // 1. Crear nueva columna minutos_reales
-            $wpdb->query(
-                "ALTER TABLE {$table_tareas}
-                 ADD COLUMN minutos_reales INT DEFAULT 0 COMMENT 'Tiempo real en MINUTOS'"
-            );
-
-            // 2. Migrar datos: convertir horas a minutos (x60)
-            $wpdb->query(
-                "UPDATE {$table_tareas}
-                 SET minutos_reales = ROUND(COALESCE(horas_reales, 0) * 60)"
-            );
-
-            // 3. Eliminar columna vieja
+        if ($tiene_horas_reales && !$tiene_minutos_reales) {
+            $wpdb->query("ALTER TABLE {$table_tareas} ADD COLUMN minutos_reales INT DEFAULT 0 COMMENT 'Tiempo real en MINUTOS'");
+            $wpdb->query("UPDATE {$table_tareas} SET minutos_reales = ROUND(COALESCE(horas_reales, 0) * 60)");
             $wpdb->query("ALTER TABLE {$table_tareas} DROP COLUMN horas_reales");
-        }
-
-        // Si no existe minutos_reales, crearla
-        $columna_minutos_reales = $wpdb->get_results(
-            "SHOW COLUMNS FROM {$table_tareas} LIKE 'minutos_reales'"
-        );
-
-        if (empty($columna_minutos_reales)) {
-            $wpdb->query(
-                "ALTER TABLE {$table_tareas}
-                 ADD COLUMN minutos_reales INT DEFAULT 0 COMMENT 'Tiempo real en MINUTOS'"
-            );
+        } elseif (!$tiene_horas_reales && !$tiene_minutos_reales) {
+            $wpdb->query("ALTER TABLE {$table_tareas} ADD COLUMN minutos_reales INT DEFAULT 0 COMMENT 'Tiempo real en MINUTOS'");
         }
 
         // =====================================================================
         // MIGRACIÓN SUBTAREAS: horas_reales → minutos_reales
         // =====================================================================
 
-        $columna_horas_reales_sub = $wpdb->get_results(
-            "SHOW COLUMNS FROM {$table_subtareas} LIKE 'horas_reales'"
-        );
+        $tiene_horas_reales_sub = !empty($wpdb->get_results("SHOW COLUMNS FROM {$table_subtareas} LIKE 'horas_reales'"));
+        $tiene_minutos_reales_sub = !empty($wpdb->get_results("SHOW COLUMNS FROM {$table_subtareas} LIKE 'minutos_reales'"));
 
-        if (!empty($columna_horas_reales_sub)) {
-            // 1. Crear nueva columna minutos_reales
-            $wpdb->query(
-                "ALTER TABLE {$table_subtareas}
-                 ADD COLUMN minutos_reales INT DEFAULT 0 COMMENT 'Tiempo real en MINUTOS'"
-            );
-
-            // 2. Migrar datos
-            $wpdb->query(
-                "UPDATE {$table_subtareas}
-                 SET minutos_reales = ROUND(COALESCE(horas_reales, 0) * 60)"
-            );
-
-            // 3. Eliminar columna vieja
+        if ($tiene_horas_reales_sub && !$tiene_minutos_reales_sub) {
+            // Caso: Migrar de horas a minutos
+            $wpdb->query("ALTER TABLE {$table_subtareas} ADD COLUMN minutos_reales INT DEFAULT 0 COMMENT 'Tiempo real en MINUTOS'");
+            $wpdb->query("UPDATE {$table_subtareas} SET minutos_reales = ROUND(COALESCE(horas_reales, 0) * 60)");
             $wpdb->query("ALTER TABLE {$table_subtareas} DROP COLUMN horas_reales");
+        } elseif (!$tiene_horas_reales_sub && !$tiene_minutos_reales_sub) {
+            // Caso: Tabla nueva sin ninguna columna de tiempo real
+            $wpdb->query("ALTER TABLE {$table_subtareas} ADD COLUMN minutos_reales INT DEFAULT 0 COMMENT 'Tiempo real en MINUTOS'");
         }
-
-        // Si no existe minutos_reales en subtareas, crearla
-        $columna_minutos_reales_sub = $wpdb->get_results(
-            "SHOW COLUMNS FROM {$table_subtareas} LIKE 'minutos_reales'"
-        );
-
-        if (empty($columna_minutos_reales_sub)) {
-            $wpdb->query(
-                "ALTER TABLE {$table_subtareas}
-                 ADD COLUMN minutos_reales INT DEFAULT 0 COMMENT 'Tiempo real en MINUTOS'"
-            );
-        }
+        // Si ya tiene minutos_reales, no hacer nada
     }
 
     // =========================================================================
@@ -1625,13 +1398,13 @@ class GA_Activator {
      * CICLO DE VIDA DE UNA FACTURA:
      * =========================================================================
      *
-     *   BORRADOR ──► ENVIADA ──► PAGADA
+     *   BORRADOR --► ENVIADA --► PAGADA
      *       │           │
-     *       │           └──► PARCIAL ──► PAGADA
+     *       │           └--► PARCIAL --► PAGADA
      *       │           │
-     *       │           └──► VENCIDA ──► PAGADA (pago tardío)
+     *       │           └--► VENCIDA --► PAGADA (pago tardío)
      *       │
-     *       └──► ANULADA
+     *       └--► ANULADA
      *
      * =========================================================================
      * RELACIONES:
@@ -1649,52 +1422,23 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_facturas';
 
         $sql = "CREATE TABLE {$table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * IDENTIFICACIÓN
-             * El número se genera automáticamente según el país
-             * ───────────────────────────────────────────────────────────────── */
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             numero VARCHAR(30) NOT NULL UNIQUE COMMENT 'Formato: FAC-XX-YYYY-NNNN',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * CLIENTE Y DATOS DE FACTURACIÓN
-             * ───────────────────────────────────────────────────────────────── */
             cliente_id INT NOT NULL COMMENT 'FK wp_ga_clientes',
             cliente_nombre VARCHAR(200) COMMENT 'Snapshot: nombre al momento de facturar',
             cliente_documento VARCHAR(50) COMMENT 'Snapshot: NIT/RFC al facturar',
             cliente_direccion TEXT COMMENT 'Snapshot: dirección al facturar',
             cliente_email VARCHAR(200) COMMENT 'Email para envío de factura',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * REFERENCIA A CASO/PROYECTO (opcional)
-             * ───────────────────────────────────────────────────────────────── */
             caso_id INT COMMENT 'FK wp_ga_casos (si aplica)',
             proyecto_id INT COMMENT 'FK wp_ga_proyectos (si aplica)',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ORIGEN (si viene de cotización)
-             * ───────────────────────────────────────────────────────────────── */
             cotizacion_origen_id INT COMMENT 'FK wp_ga_cotizaciones (si se convirtió)',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * CONFIGURACIÓN FISCAL
-             * ───────────────────────────────────────────────────────────────── */
             pais_facturacion VARCHAR(2) NOT NULL COMMENT 'Código ISO del país',
             moneda VARCHAR(3) DEFAULT 'USD' COMMENT 'Código ISO moneda',
             tasa_cambio DECIMAL(12,4) DEFAULT 1.0000 COMMENT 'Tasa al momento de facturar',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * IMPUESTOS Y RETENCIONES
-             * ───────────────────────────────────────────────────────────────── */
             impuesto_nombre VARCHAR(50) COMMENT 'IVA, Sales Tax, etc.',
             impuesto_porcentaje DECIMAL(5,2) DEFAULT 0.00 COMMENT 'Porcentaje de impuesto',
             retencion_nombre VARCHAR(50) COMMENT 'Retención en la fuente, etc.',
             retencion_porcentaje DECIMAL(5,2) DEFAULT 0.00 COMMENT 'Porcentaje de retención',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * MONTOS (calculados automáticamente desde detalle)
-             * ───────────────────────────────────────────────────────────────── */
             subtotal DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Suma de líneas sin impuesto',
             descuento_porcentaje DECIMAL(5,2) DEFAULT 0.00 COMMENT 'Descuento global %',
             descuento_monto DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Monto de descuento',
@@ -1703,78 +1447,35 @@ class GA_Activator {
             total DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Total con impuesto',
             retencion_monto DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Monto de retención',
             total_a_pagar DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Total neto a pagar',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * PAGOS RECIBIDOS
-             * ───────────────────────────────────────────────────────────────── */
             monto_pagado DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Total pagado hasta ahora',
             saldo_pendiente DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Saldo por cobrar',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * FECHAS
-             * ───────────────────────────────────────────────────────────────── */
             fecha_emision DATE COMMENT 'Fecha de emisión de la factura',
             fecha_vencimiento DATE COMMENT 'Fecha límite de pago',
             dias_credito INT DEFAULT 30 COMMENT 'Días de crédito otorgados',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ESTADO DE LA FACTURA
-             * ───────────────────────────────────────────────────────────────── */
-            estado ENUM(
-                'BORRADOR',     /* En edición, no enviada */
-                'ENVIADA',      /* Enviada al cliente, pendiente de pago */
-                'PARCIAL',      /* Pago parcial recibido */
-                'PAGADA',       /* Completamente pagada */
-                'VENCIDA',      /* Pasó fecha de vencimiento sin pago total */
-                'ANULADA'       /* Anulada/cancelada */
-            ) DEFAULT 'BORRADOR',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * DATOS DE FACTURACIÓN ELECTRÓNICA (si aplica)
-             * ───────────────────────────────────────────────────────────────── */
+            estado ENUM('BORRADOR','ENVIADA','PARCIAL','PAGADA','VENCIDA','ANULADA') DEFAULT 'BORRADOR',
             numero_documento_pos VARCHAR(50) COMMENT 'Número en sistema POS externo',
             consecutivo_dian VARCHAR(100) COMMENT 'Consecutivo DIAN/SAT/SII',
             cufe VARCHAR(200) COMMENT 'Código Único de Factura Electrónica',
             qr_code TEXT COMMENT 'Código QR de validación',
             url_pdf VARCHAR(500) COMMENT 'URL del PDF firmado',
             url_xml VARCHAR(500) COMMENT 'URL del XML firmado',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * INFORMACIÓN ADICIONAL
-             * ───────────────────────────────────────────────────────────────── */
             concepto_general TEXT COMMENT 'Descripción general de la factura',
             notas TEXT COMMENT 'Notas adicionales visibles al cliente',
             notas_internas TEXT COMMENT 'Notas solo para uso interno',
             terminos TEXT COMMENT 'Términos y condiciones',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * COSTOS INTERNOS (para cálculo de rentabilidad)
-             * ───────────────────────────────────────────────────────────────── */
             costo_horas DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Costo de las horas facturadas',
             comisiones_total DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Total comisiones generadas',
             utilidad_bruta DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Utilidad antes de comisiones',
             utilidad_neta DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Utilidad final',
             margen_porcentaje DECIMAL(5,2) DEFAULT 0.00 COMMENT 'Margen de utilidad %',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * RESPONSABLES
-             * ───────────────────────────────────────────────────────────────── */
             creado_por BIGINT UNSIGNED COMMENT 'Usuario WP que creó la factura',
             enviado_por BIGINT UNSIGNED COMMENT 'Usuario que envió la factura',
             fecha_envio DATETIME COMMENT 'Cuándo se envió al cliente',
             anulado_por BIGINT UNSIGNED COMMENT 'Usuario que anuló (si aplica)',
             fecha_anulacion DATETIME COMMENT 'Cuándo se anuló',
             motivo_anulacion TEXT COMMENT 'Razón de anulación',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * AUDITORÍA
-             * ───────────────────────────────────────────────────────────────── */
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ÍNDICES para búsquedas frecuentes
-             * ───────────────────────────────────────────────────────────────── */
             INDEX idx_numero (numero),
             INDEX idx_cliente (cliente_id),
             INDEX idx_caso (caso_id),
@@ -1782,7 +1483,8 @@ class GA_Activator {
             INDEX idx_estado (estado),
             INDEX idx_pais (pais_facturacion),
             INDEX idx_fecha_emision (fecha_emision),
-            INDEX idx_fecha_vencimiento (fecha_vencimiento)
+            INDEX idx_fecha_vencimiento (fecha_vencimiento),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -1820,75 +1522,35 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_facturas_detalle';
 
         $sql = "CREATE TABLE {$table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * RELACIÓN CON FACTURA
-             * ───────────────────────────────────────────────────────────────── */
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             factura_id INT NOT NULL COMMENT 'FK wp_ga_facturas',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ORDEN DE LA LÍNEA
-             * ───────────────────────────────────────────────────────────────── */
             orden INT DEFAULT 0 COMMENT 'Orden de aparición en la factura',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * TIPO DE LÍNEA
-             * ───────────────────────────────────────────────────────────────── */
-            tipo ENUM('SERVICIO', 'HORA', 'PRODUCTO', 'DESCUENTO', 'AJUSTE') DEFAULT 'SERVICIO',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * DESCRIPCIÓN DEL CONCEPTO
-             * ───────────────────────────────────────────────────────────────── */
+            tipo ENUM('SERVICIO','HORA','PRODUCTO','DESCUENTO','AJUSTE') DEFAULT 'SERVICIO',
             codigo VARCHAR(50) COMMENT 'Código del concepto (opcional)',
             descripcion TEXT NOT NULL COMMENT 'Descripción del concepto/servicio',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * CANTIDADES Y PRECIOS
-             * ───────────────────────────────────────────────────────────────── */
             cantidad DECIMAL(10,2) DEFAULT 1.00 COMMENT 'Cantidad (horas, unidades)',
             unidad VARCHAR(20) DEFAULT 'UNIDAD' COMMENT 'Unidad de medida (HORA, UNIDAD, etc)',
             precio_unitario DECIMAL(14,4) DEFAULT 0.0000 COMMENT 'Precio por unidad',
             descuento_porcentaje DECIMAL(5,2) DEFAULT 0.00 COMMENT 'Descuento % de la línea',
             descuento_monto DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Monto descuento calculado',
             subtotal DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Cantidad * Precio - Descuento',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * IMPUESTO DE LA LÍNEA (algunos países lo manejan por línea)
-             * ───────────────────────────────────────────────────────────────── */
             aplica_impuesto TINYINT(1) DEFAULT 1 COMMENT '1=Grava impuesto',
             impuesto_porcentaje DECIMAL(5,2) DEFAULT 0.00 COMMENT '% impuesto si es por línea',
             impuesto_monto DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Monto impuesto',
             total_linea DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Subtotal + Impuesto',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * REFERENCIA A HORAS/TAREAS (si aplica)
-             * Para facturación de horas trabajadas
-             * ───────────────────────────────────────────────────────────────── */
             registro_hora_id INT COMMENT 'FK wp_ga_registro_horas (si es hora)',
             tarea_id INT COMMENT 'FK wp_ga_tareas (referencia)',
             fecha_servicio DATE COMMENT 'Fecha en que se prestó el servicio',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * COSTO INTERNO (para rentabilidad)
-             * ───────────────────────────────────────────────────────────────── */
             costo_unitario DECIMAL(14,4) DEFAULT 0.0000 COMMENT 'Costo real por unidad',
             costo_total DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Costo total de la línea',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * AUDITORÍA
-             * ───────────────────────────────────────────────────────────────── */
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ÍNDICES
-             * ───────────────────────────────────────────────────────────────── */
             INDEX idx_factura (factura_id),
             INDEX idx_tipo (tipo),
             INDEX idx_registro_hora (registro_hora_id),
             INDEX idx_tarea (tarea_id),
-            INDEX idx_orden (orden)
+            INDEX idx_orden (orden),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -1913,14 +1575,14 @@ class GA_Activator {
      * CICLO DE VIDA DE UNA COTIZACIÓN:
      * =========================================================================
      *
-     *   BORRADOR ──► ENVIADA ──► APROBADA ──► FACTURADA
+     *   BORRADOR --► ENVIADA --► APROBADA --► FACTURADA
      *       │           │            │
-     *       │           │            └──► VENCIDA (no se facturó a tiempo)
-     *       │           └──► RECHAZADA
+     *       │           │            └--► VENCIDA (no se facturó a tiempo)
+     *       │           └--► RECHAZADA
      *       │           │
-     *       │           └──► VENCIDA (pasó vigencia)
+     *       │           └--► VENCIDA (pasó vigencia)
      *       │
-     *       └──► CANCELADA
+     *       └--► CANCELADA
      *
      * =========================================================================
      * RELACIONES:
@@ -1937,118 +1599,51 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_cotizaciones';
 
         $sql = "CREATE TABLE {$table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * IDENTIFICACIÓN
-             * ───────────────────────────────────────────────────────────────── */
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             numero VARCHAR(30) NOT NULL UNIQUE COMMENT 'Formato: COT-YYYY-NNNN',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * CLIENTE Y DATOS
-             * ───────────────────────────────────────────────────────────────── */
             cliente_id INT NOT NULL COMMENT 'FK wp_ga_clientes',
             cliente_nombre VARCHAR(200) COMMENT 'Snapshot: nombre del cliente',
             cliente_email VARCHAR(200) COMMENT 'Email para envío',
             contacto_nombre VARCHAR(200) COMMENT 'Nombre del contacto',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * REFERENCIA A CASO/PROYECTO (opcional)
-             * ───────────────────────────────────────────────────────────────── */
             caso_id INT COMMENT 'FK wp_ga_casos',
             proyecto_id INT COMMENT 'FK wp_ga_proyectos',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * INFORMACIÓN GENERAL
-             * ───────────────────────────────────────────────────────────────── */
             titulo VARCHAR(200) COMMENT 'Título de la cotización',
             descripcion TEXT COMMENT 'Descripción general del servicio',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * CONFIGURACIÓN MONETARIA
-             * ───────────────────────────────────────────────────────────────── */
             moneda VARCHAR(3) DEFAULT 'USD' COMMENT 'Código ISO moneda',
             pais_destino VARCHAR(2) COMMENT 'País del cliente para impuestos',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * IMPUESTOS (para preview)
-             * ───────────────────────────────────────────────────────────────── */
             impuesto_nombre VARCHAR(50) COMMENT 'IVA, etc.',
             impuesto_porcentaje DECIMAL(5,2) DEFAULT 0.00,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * MONTOS (calculados desde detalle)
-             * ───────────────────────────────────────────────────────────────── */
             subtotal DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Suma de líneas',
             descuento_porcentaje DECIMAL(5,2) DEFAULT 0.00,
             descuento_monto DECIMAL(14,2) DEFAULT 0.00,
             impuesto_monto DECIMAL(14,2) DEFAULT 0.00,
             total DECIMAL(14,2) DEFAULT 0.00 COMMENT 'Total cotizado',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * FECHAS
-             * ───────────────────────────────────────────────────────────────── */
             fecha_emision DATE COMMENT 'Fecha de emisión',
             fecha_vigencia DATE COMMENT 'Válida hasta esta fecha',
             dias_vigencia INT DEFAULT 30 COMMENT 'Días de vigencia',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ESTADO DE LA COTIZACIÓN
-             * ───────────────────────────────────────────────────────────────── */
-            estado ENUM(
-                'BORRADOR',     /* En edición */
-                'ENVIADA',      /* Enviada al cliente */
-                'APROBADA',     /* Cliente aceptó */
-                'RECHAZADA',    /* Cliente rechazó */
-                'FACTURADA',    /* Se generó factura */
-                'VENCIDA',      /* Pasó fecha de vigencia */
-                'CANCELADA'     /* Cancelada internamente */
-            ) DEFAULT 'BORRADOR',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * CONVERSIÓN A FACTURA
-             * ───────────────────────────────────────────────────────────────── */
+            estado ENUM('BORRADOR','ENVIADA','APROBADA','RECHAZADA','FACTURADA','VENCIDA','CANCELADA') DEFAULT 'BORRADOR',
             factura_generada_id INT COMMENT 'FK wp_ga_facturas (cuando se convierte)',
             fecha_conversion DATETIME COMMENT 'Cuándo se convirtió a factura',
             convertido_por BIGINT UNSIGNED COMMENT 'Quién convirtió',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * INFORMACIÓN ADICIONAL
-             * ───────────────────────────────────────────────────────────────── */
             notas TEXT COMMENT 'Notas visibles al cliente',
             notas_internas TEXT COMMENT 'Notas internas',
             terminos TEXT COMMENT 'Términos y condiciones',
             forma_pago TEXT COMMENT 'Descripción de forma de pago',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * APROBACIÓN/RECHAZO
-             * ───────────────────────────────────────────────────────────────── */
             fecha_respuesta DATETIME COMMENT 'Cuándo respondió el cliente',
             motivo_rechazo TEXT COMMENT 'Si rechazó, por qué',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * RESPONSABLES
-             * ───────────────────────────────────────────────────────────────── */
             creado_por BIGINT UNSIGNED COMMENT 'Quién creó',
             enviado_por BIGINT UNSIGNED COMMENT 'Quién envió',
             fecha_envio DATETIME COMMENT 'Cuándo se envió',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * AUDITORÍA
-             * ───────────────────────────────────────────────────────────────── */
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ÍNDICES
-             * ───────────────────────────────────────────────────────────────── */
             INDEX idx_numero (numero),
             INDEX idx_cliente (cliente_id),
             INDEX idx_caso (caso_id),
             INDEX idx_proyecto (proyecto_id),
             INDEX idx_estado (estado),
             INDEX idx_fecha_emision (fecha_emision),
-            INDEX idx_fecha_vigencia (fecha_vigencia)
+            INDEX idx_fecha_vigencia (fecha_vigencia),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -2070,66 +1665,31 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_cotizaciones_detalle';
 
         $sql = "CREATE TABLE {$table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * RELACIÓN CON COTIZACIÓN
-             * ───────────────────────────────────────────────────────────────── */
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             cotizacion_id INT NOT NULL COMMENT 'FK wp_ga_cotizaciones',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ORDEN Y TIPO
-             * ───────────────────────────────────────────────────────────────── */
             orden INT DEFAULT 0 COMMENT 'Orden de aparición',
-            tipo ENUM('SERVICIO', 'HORA', 'PRODUCTO', 'DESCUENTO') DEFAULT 'SERVICIO',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * DESCRIPCIÓN
-             * ───────────────────────────────────────────────────────────────── */
+            tipo ENUM('SERVICIO','HORA','PRODUCTO','DESCUENTO') DEFAULT 'SERVICIO',
             codigo VARCHAR(50) COMMENT 'Código del servicio (opcional)',
             descripcion TEXT NOT NULL COMMENT 'Descripción del concepto',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * CANTIDADES Y PRECIOS
-             * ───────────────────────────────────────────────────────────────── */
             cantidad DECIMAL(10,2) DEFAULT 1.00,
             unidad VARCHAR(20) DEFAULT 'UNIDAD',
             precio_unitario DECIMAL(14,4) DEFAULT 0.0000,
             descuento_porcentaje DECIMAL(5,2) DEFAULT 0.00,
             descuento_monto DECIMAL(14,2) DEFAULT 0.00,
             subtotal DECIMAL(14,2) DEFAULT 0.00,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * IMPUESTO (si se maneja por línea)
-             * ───────────────────────────────────────────────────────────────── */
             aplica_impuesto TINYINT(1) DEFAULT 1,
             impuesto_porcentaje DECIMAL(5,2) DEFAULT 0.00,
             impuesto_monto DECIMAL(14,2) DEFAULT 0.00,
             total_linea DECIMAL(14,2) DEFAULT 0.00,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ESTIMACIONES DE TIEMPO (para cotizaciones de horas)
-             * ───────────────────────────────────────────────────────────────── */
             horas_estimadas DECIMAL(10,2) COMMENT 'Horas estimadas para este ítem',
             tarifa_hora DECIMAL(14,4) COMMENT 'Tarifa por hora estimada',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * NOTAS
-             * ───────────────────────────────────────────────────────────────── */
             notas TEXT COMMENT 'Notas adicionales de la línea',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * AUDITORÍA
-             * ───────────────────────────────────────────────────────────────── */
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ÍNDICES
-             * ───────────────────────────────────────────────────────────────── */
             INDEX idx_cotizacion (cotizacion_id),
             INDEX idx_tipo (tipo),
-            INDEX idx_orden (orden)
+            INDEX idx_orden (orden),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -2165,66 +1725,35 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_empresas';
 
         $sql = "CREATE TABLE {$table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * IDENTIFICACIÓN
-             * ───────────────────────────────────────────────────────────────── */
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             codigo VARCHAR(20) NOT NULL UNIQUE COMMENT 'Código corto: WOLK-CR, WOLK-US',
             nombre VARCHAR(200) NOT NULL COMMENT 'Nombre comercial: Wolk Costa Rica',
             razon_social VARCHAR(200) NOT NULL COMMENT 'Razón social legal completa',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * DATOS FISCALES
-             * ───────────────────────────────────────────────────────────────── */
             identificacion_tipo VARCHAR(20) COMMENT 'Tipo: NIT, EIN, RUT, Cédula Jurídica',
             identificacion_fiscal VARCHAR(50) NOT NULL COMMENT 'Número de identificación fiscal',
             pais_id INT COMMENT 'FK wp_ga_paises_config - País de la empresa',
             pais_iso VARCHAR(2) NOT NULL COMMENT 'Código ISO del país',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * CONTACTO Y UBICACIÓN
-             * ───────────────────────────────────────────────────────────────── */
             direccion TEXT COMMENT 'Dirección fiscal completa',
             ciudad VARCHAR(100) COMMENT 'Ciudad',
             codigo_postal VARCHAR(20) COMMENT 'Código postal',
             telefono VARCHAR(50) COMMENT 'Teléfono principal',
             email VARCHAR(100) COMMENT 'Email corporativo',
             sitio_web VARCHAR(200) COMMENT 'URL del sitio web',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * BRANDING
-             * ───────────────────────────────────────────────────────────────── */
             logo_url VARCHAR(500) COMMENT 'URL del logo para documentos',
             color_primario VARCHAR(7) DEFAULT '#0073aa' COMMENT 'Color hex para documentos',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * CONFIGURACIÓN DE FACTURACIÓN
-             * ───────────────────────────────────────────────────────────────── */
             prefijo_factura VARCHAR(10) DEFAULT 'FAC' COMMENT 'Prefijo para facturas',
             consecutivo_factura INT DEFAULT 0 COMMENT 'Último consecutivo usado',
             pie_factura TEXT COMMENT 'Texto pie de página en facturas',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * DATOS BANCARIOS PARA RECIBIR PAGOS
-             * ───────────────────────────────────────────────────────────────── */
             datos_bancarios JSON COMMENT 'Array de cuentas bancarias',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ESTADO Y AUDITORÍA
-             * ───────────────────────────────────────────────────────────────── */
             es_principal TINYINT(1) DEFAULT 0 COMMENT '1=Empresa principal/default',
             activo TINYINT(1) DEFAULT 1,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ÍNDICES
-             * ───────────────────────────────────────────────────────────────── */
             INDEX idx_codigo (codigo),
             INDEX idx_pais (pais_iso),
             INDEX idx_activo (activo),
-            INDEX idx_principal (es_principal)
+            INDEX idx_principal (es_principal),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -2251,58 +1780,25 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_catalogo_bonos';
 
         $sql = "CREATE TABLE {$table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * IDENTIFICACIÓN DEL BONO
-             * ───────────────────────────────────────────────────────────────── */
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             codigo VARCHAR(30) NOT NULL UNIQUE COMMENT 'Código corto: BONO-CAM, BONO-PUNT',
             nombre VARCHAR(100) NOT NULL COMMENT 'Nombre del bono: Cámara en reuniones',
             descripcion TEXT COMMENT 'Descripción detallada del bono y condiciones',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * TIPO DE VALOR
-             * - FIJO: Monto fijo en USD (ej: $50)
-             * - PORCENTAJE: Porcentaje de algo (ej: 5% de horas)
-             * ───────────────────────────────────────────────────────────────── */
-            tipo_valor ENUM('FIJO', 'PORCENTAJE') DEFAULT 'FIJO',
+            tipo_valor ENUM('FIJO','PORCENTAJE') DEFAULT 'FIJO',
             valor_default DECIMAL(10,2) DEFAULT 0.00 COMMENT 'Valor sugerido por defecto',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * FRECUENCIA DE PAGO
-             * ───────────────────────────────────────────────────────────────── */
-            frecuencia ENUM('UNICO', 'SEMANAL', 'QUINCENAL', 'MENSUAL') DEFAULT 'MENSUAL',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * CONDICIONES (texto descriptivo)
-             * ───────────────────────────────────────────────────────────────── */
+            frecuencia ENUM('UNICO','SEMANAL','QUINCENAL','MENSUAL') DEFAULT 'MENSUAL',
             condicion_descripcion TEXT COMMENT 'Ej: Mantener cámara encendida en todas las reuniones',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * CATEGORÍA DEL BONO
-             * ───────────────────────────────────────────────────────────────── */
-            categoria ENUM('PRODUCTIVIDAD', 'ASISTENCIA', 'CALIDAD', 'COMUNICACION', 'METAS', 'OTRO') DEFAULT 'OTRO',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ÍCONO PARA MOSTRAR EN UI
-             * ───────────────────────────────────────────────────────────────── */
+            categoria ENUM('PRODUCTIVIDAD','ASISTENCIA','CALIDAD','COMUNICACION','METAS','OTRO') DEFAULT 'OTRO',
             icono VARCHAR(50) DEFAULT 'dashicons-awards' COMMENT 'Clase dashicons o FontAwesome',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ESTADO Y AUDITORÍA
-             * ───────────────────────────────────────────────────────────────── */
             activo TINYINT(1) DEFAULT 1,
             orden INT DEFAULT 0 COMMENT 'Orden de aparición en listados',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ÍNDICES
-             * ───────────────────────────────────────────────────────────────── */
             INDEX idx_codigo (codigo),
             INDEX idx_categoria (categoria),
             INDEX idx_activo (activo),
-            INDEX idx_orden (orden)
+            INDEX idx_orden (orden),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -2344,77 +1840,27 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_ordenes_acuerdos';
 
         $sql = "CREATE TABLE {$table_name} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * RELACIÓN CON ORDEN DE TRABAJO
-             * ───────────────────────────────────────────────────────────────── */
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             orden_id INT NOT NULL COMMENT 'FK wp_ga_ordenes_trabajo',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * TIPO DE ACUERDO
-             * ───────────────────────────────────────────────────────────────── */
-            tipo_acuerdo ENUM(
-                'HORA_REPORTADA',           /* Pago por hora reportada */
-                'HORA_APROBADA',            /* Pago por hora aprobada */
-                'TRABAJO_COMPLETADO',       /* Pago fijo al completar */
-                'COMISION_FACTURA',         /* % de facturas pagadas */
-                'COMISION_HORAS_SUPERVISADAS', /* % de horas supervisadas */
-                'META_RENTABILIDAD',        /* Bono por rentabilidad */
-                'BONO'                      /* Bono del catálogo */
-            ) NOT NULL,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * VALOR DEL ACUERDO
-             * - Si es_porcentaje=0: valor es monto fijo en USD
-             * - Si es_porcentaje=1: valor es porcentaje (ej: 5.00 = 5%)
-             * ───────────────────────────────────────────────────────────────── */
+            tipo_acuerdo ENUM('HORA_REPORTADA','HORA_APROBADA','TRABAJO_COMPLETADO','COMISION_FACTURA','COMISION_HORAS_SUPERVISADAS','META_RENTABILIDAD','BONO') NOT NULL,
             valor DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'Monto o porcentaje',
             es_porcentaje TINYINT(1) DEFAULT 0 COMMENT '1=El valor es un porcentaje',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * REFERENCIA A BONO DEL CATÁLOGO (solo si tipo='BONO')
-             * ───────────────────────────────────────────────────────────────── */
             bono_id INT COMMENT 'FK wp_ga_catalogo_bonos (solo si tipo=BONO)',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * CONDICIÓN PARA APLICAR EL ACUERDO
-             * Para bonos condicionales o metas
-             * ───────────────────────────────────────────────────────────────── */
             condicion VARCHAR(255) COMMENT 'Ej: rentabilidad > 50%, horas > 150',
             condicion_valor DECIMAL(10,2) COMMENT 'Valor numérico de la condición',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * DESCRIPCIÓN Y NOTAS
-             * ───────────────────────────────────────────────────────────────── */
             descripcion TEXT COMMENT 'Descripción adicional del acuerdo',
             notas_internas TEXT COMMENT 'Notas solo para admin',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * FRECUENCIA DE PAGO (para algunos tipos)
-             * ───────────────────────────────────────────────────────────────── */
-            frecuencia_pago ENUM('POR_EVENTO', 'SEMANAL', 'QUINCENAL', 'MENSUAL', 'AL_FINALIZAR') DEFAULT 'MENSUAL',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ESTADO Y ORDEN
-             * ───────────────────────────────────────────────────────────────── */
+            frecuencia_pago ENUM('POR_EVENTO','SEMANAL','QUINCENAL','MENSUAL','AL_FINALIZAR') DEFAULT 'MENSUAL',
             activo TINYINT(1) DEFAULT 1 COMMENT '1=Acuerdo activo',
             orden INT DEFAULT 0 COMMENT 'Orden de aparición',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * AUDITORÍA
-             * ───────────────────────────────────────────────────────────────── */
             created_by BIGINT UNSIGNED COMMENT 'Quién creó el acuerdo',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ÍNDICES
-             * ───────────────────────────────────────────────────────────────── */
             INDEX idx_orden (orden_id),
             INDEX idx_tipo (tipo_acuerdo),
             INDEX idx_bono (bono_id),
-            INDEX idx_activo (activo)
+            INDEX idx_activo (activo),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -2441,25 +1887,12 @@ class GA_Activator {
 
         $sql = "CREATE TABLE {$table_name} (
             id BIGINT(20) NOT NULL AUTO_INCREMENT,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * RELACIONES
-             * ───────────────────────────────────────────────────────────────── */
             orden_id BIGINT(20) NOT NULL COMMENT 'FK wp_ga_ordenes_trabajo',
             bono_id BIGINT(20) NOT NULL COMMENT 'FK wp_ga_catalogo_bonos',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * PERSONALIZACIÓN PARA ESTA ORDEN
-             * ───────────────────────────────────────────────────────────────── */
             detalle TEXT NULL COMMENT 'Detalle específico del bono para esta orden',
             monto_personalizado DECIMAL(10,2) NULL COMMENT 'Monto personalizado (NULL=usar catálogo)',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ESTADO
-             * ───────────────────────────────────────────────────────────────── */
             activo TINYINT(1) DEFAULT 1,
             created_at DATETIME NOT NULL,
-
             PRIMARY KEY (id),
             KEY idx_orden (orden_id),
             KEY idx_bono (bono_id)
@@ -2485,51 +1918,28 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_comisiones_generadas';
 
         $sql = "CREATE TABLE {$table_name} (
-            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * REFERENCIAS AL ORIGEN
-             * ───────────────────────────────────────────────────────────────── */
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             orden_id BIGINT UNSIGNED NOT NULL COMMENT 'FK wp_ga_ordenes_trabajo',
             acuerdo_id BIGINT UNSIGNED NOT NULL COMMENT 'FK wp_ga_ordenes_acuerdos',
             aplicante_id BIGINT UNSIGNED NOT NULL COMMENT 'FK wp_ga_aplicantes (quien recibe)',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ORIGEN DEL PAGO (qué factura/documento generó esta comisión)
-             * ───────────────────────────────────────────────────────────────── */
             pago_origen_id BIGINT UNSIGNED COMMENT 'ID de la factura o documento origen',
-            tipo_origen ENUM('FACTURA', 'PAGO_MANUAL', 'OTRO') DEFAULT 'FACTURA',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * CÁLCULO DE LA COMISIÓN
-             * ───────────────────────────────────────────────────────────────── */
+            tipo_origen ENUM('FACTURA','PAGO_MANUAL','OTRO') DEFAULT 'FACTURA',
             monto_base DECIMAL(12,2) NOT NULL COMMENT 'Monto sobre el cual se calculó',
             porcentaje_aplicado DECIMAL(5,2) DEFAULT NULL COMMENT 'Si fue por porcentaje',
             monto_fijo_aplicado DECIMAL(12,2) DEFAULT NULL COMMENT 'Si fue monto fijo',
             monto_comision DECIMAL(12,2) NOT NULL COMMENT 'Monto final de la comisión',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ESTADO DE LA COMISIÓN
-             * ───────────────────────────────────────────────────────────────── */
-            estado ENUM('DISPONIBLE', 'SOLICITADA', 'PAGADA', 'CANCELADA') DEFAULT 'DISPONIBLE',
+            estado ENUM('DISPONIBLE','SOLICITADA','PAGADA','CANCELADA') DEFAULT 'DISPONIBLE',
             solicitud_id BIGINT UNSIGNED DEFAULT NULL COMMENT 'FK wp_ga_solicitudes_cobro',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * NOTAS Y AUDITORÍA
-             * ───────────────────────────────────────────────────────────────── */
             notas TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ÍNDICES
-             * ───────────────────────────────────────────────────────────────── */
             INDEX idx_orden (orden_id),
             INDEX idx_acuerdo (acuerdo_id),
             INDEX idx_aplicante (aplicante_id),
             INDEX idx_estado (estado),
             INDEX idx_solicitud (solicitud_id),
-            INDEX idx_origen (tipo_origen, pago_origen_id)
+            INDEX idx_origen (tipo_origen, pago_origen_id),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -2548,59 +1958,28 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_solicitudes_cobro';
 
         $sql = "CREATE TABLE {$table_name} (
-            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * IDENTIFICACIÓN
-             * ───────────────────────────────────────────────────────────────── */
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             numero_solicitud VARCHAR(20) NOT NULL UNIQUE COMMENT 'SOL-YYYY-NNNN',
             aplicante_id BIGINT UNSIGNED NOT NULL COMMENT 'FK wp_ga_aplicantes',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * MONTOS
-             * ───────────────────────────────────────────────────────────────── */
             monto_disponible DECIMAL(12,2) NOT NULL COMMENT 'Total disponible al momento',
             monto_solicitado DECIMAL(12,2) NOT NULL COMMENT 'Cuánto solicita el proveedor',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * MÉTODO DE PAGO
-             * ───────────────────────────────────────────────────────────────── */
-            metodo_pago ENUM('BINANCE', 'WISE', 'PAYPAL', 'TRANSFERENCIA_LOCAL', 'OTRO') NOT NULL,
+            metodo_pago ENUM('BINANCE','WISE','PAYPAL','TRANSFERENCIA_LOCAL','OTRO') NOT NULL,
             datos_pago JSON COMMENT 'Datos según método: wallet, email, cuenta, etc.',
             moneda VARCHAR(3) DEFAULT 'USD',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * NOTAS DEL SOLICITANTE
-             * ───────────────────────────────────────────────────────────────── */
             notas_solicitante TEXT COMMENT 'Mensaje del proveedor',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ESTADO Y REVISIÓN
-             * ───────────────────────────────────────────────────────────────── */
-            estado ENUM('PENDIENTE', 'EN_REVISION', 'APROBADA', 'RECHAZADA', 'PAGADA', 'CANCELADA') DEFAULT 'PENDIENTE',
+            estado ENUM('PENDIENTE','EN_REVISION','APROBADA','RECHAZADA','PAGADA','CANCELADA') DEFAULT 'PENDIENTE',
             revisado_por BIGINT UNSIGNED COMMENT 'WP User ID de quien revisó',
             notas_revision TEXT COMMENT 'Notas del revisor',
             fecha_revision DATETIME,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * PAGO
-             * ───────────────────────────────────────────────────────────────── */
             fecha_pago DATETIME,
             comprobante_pago VARCHAR(500) COMMENT 'URL o referencia del comprobante',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * AUDITORÍA
-             * ───────────────────────────────────────────────────────────────── */
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ÍNDICES
-             * ───────────────────────────────────────────────────────────────── */
             INDEX idx_aplicante (aplicante_id),
             INDEX idx_estado (estado),
             INDEX idx_fecha (created_at),
-            INDEX idx_metodo (metodo_pago)
+            INDEX idx_metodo (metodo_pago),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -2619,44 +1998,21 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_solicitudes_cobro_detalle';
 
         $sql = "CREATE TABLE {$table_name} (
-            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * REFERENCIAS
-             * ───────────────────────────────────────────────────────────────── */
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             solicitud_id BIGINT UNSIGNED NOT NULL COMMENT 'FK wp_ga_solicitudes_cobro',
             comision_id BIGINT UNSIGNED NOT NULL COMMENT 'FK wp_ga_comisiones_generadas',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * MONTOS ORIGINALES (snapshot al momento de incluir)
-             * ───────────────────────────────────────────────────────────────── */
             monto_original DECIMAL(12,2) NOT NULL COMMENT 'Monto de la comisión original',
             porcentaje_original DECIMAL(5,2) COMMENT 'Porcentaje original si aplicaba',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * AJUSTES (si el proveedor acepta menos)
-             * ───────────────────────────────────────────────────────────────── */
-            tipo_ajuste ENUM('NINGUNO', 'PORCENTAJE_REDUCIDO', 'MONTO_FIJO') DEFAULT 'NINGUNO',
+            tipo_ajuste ENUM('NINGUNO','PORCENTAJE_REDUCIDO','MONTO_FIJO') DEFAULT 'NINGUNO',
             porcentaje_solicitado DECIMAL(5,2) COMMENT 'Nuevo % si hay ajuste',
             monto_solicitado DECIMAL(12,2) NOT NULL COMMENT 'Monto final solicitado',
             motivo_ajuste TEXT COMMENT 'Por qué se ajustó',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ESTADO
-             * ───────────────────────────────────────────────────────────────── */
             incluida TINYINT(1) DEFAULT 1 COMMENT '1=incluida en solicitud',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * AUDITORÍA
-             * ───────────────────────────────────────────────────────────────── */
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ÍNDICES
-             * ───────────────────────────────────────────────────────────────── */
             INDEX idx_solicitud (solicitud_id),
             INDEX idx_comision (comision_id),
-            UNIQUE KEY unique_solicitud_comision (solicitud_id, comision_id)
+            UNIQUE KEY unique_solicitud_comision (solicitud_id, comision_id),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);
@@ -2674,24 +2030,12 @@ class GA_Activator {
         $table_name = $wpdb->prefix . 'ga_metodos_pago';
 
         $sql = "CREATE TABLE {$table_name} (
-            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * TIPO Y CLASIFICACIÓN
-             * ───────────────────────────────────────────────────────────────── */
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             tipo ENUM('transferencia','paypal','wise','binance','stripe','crypto','efectivo','otro') NOT NULL,
             pais_codigo VARCHAR(3) NULL COMMENT 'Código ISO del país (CO, US, MX, etc.)',
             moneda VARCHAR(3) DEFAULT 'USD' COMMENT 'Código ISO de moneda',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * IDENTIFICACIÓN
-             * ───────────────────────────────────────────────────────────────── */
             nombre VARCHAR(100) NOT NULL COMMENT 'Nombre descriptivo (ej: Bancolombia Principal)',
             descripcion TEXT NULL COMMENT 'Notas internas',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * DATOS BANCARIOS (para tipo=transferencia)
-             * ───────────────────────────────────────────────────────────────── */
             banco_nombre VARCHAR(100) NULL COMMENT 'Nombre del banco',
             banco_tipo_cuenta ENUM('ahorros','corriente','checking','savings') NULL,
             banco_numero_cuenta VARCHAR(50) NULL COMMENT 'Número de cuenta',
@@ -2701,56 +2045,68 @@ class GA_Activator {
             banco_iban VARCHAR(50) NULL COMMENT 'IBAN si aplica',
             banco_routing VARCHAR(20) NULL COMMENT 'Routing number (USA)',
             banco_clabe VARCHAR(20) NULL COMMENT 'CLABE (México)',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * DATOS WALLET DIGITAL (PayPal, Wise, Stripe)
-             * ───────────────────────────────────────────────────────────────── */
             wallet_email VARCHAR(150) NULL COMMENT 'Email de la cuenta',
             wallet_usuario VARCHAR(100) NULL COMMENT 'Username/handle',
             wallet_account_id VARCHAR(100) NULL COMMENT 'ID de cuenta en plataforma',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * DATOS CRYPTO (Binance, wallets crypto)
-             * ───────────────────────────────────────────────────────────────── */
             crypto_red ENUM('BTC','ETH','BSC','TRC20','ERC20','POLYGON','SOLANA','otro') NULL,
             crypto_wallet_address VARCHAR(150) NULL COMMENT 'Dirección de wallet',
             crypto_token VARCHAR(20) NULL COMMENT 'Token específico (USDT, USDC, etc.)',
             crypto_binance_id VARCHAR(50) NULL COMMENT 'Binance Pay ID',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * CONTROL FINANCIERO
-             * ───────────────────────────────────────────────────────────────── */
             saldo_actual DECIMAL(15,2) DEFAULT 0.00 COMMENT 'Saldo actual de la cuenta',
             saldo_minimo DECIMAL(15,2) DEFAULT 0.00 COMMENT 'Alerta si baja de este monto',
             limite_diario DECIMAL(15,2) NULL COMMENT 'Límite de operaciones diarias',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * CONFIGURACIÓN
-             * ───────────────────────────────────────────────────────────────── */
             uso_pagos_proveedores TINYINT(1) DEFAULT 1 COMMENT 'Disponible para pagar',
             uso_cobros_clientes TINYINT(1) DEFAULT 0 COMMENT 'Disponible para recibir',
             es_principal TINYINT(1) DEFAULT 0 COMMENT 'Cuenta principal del país/tipo',
             orden_prioridad INT DEFAULT 0 COMMENT 'Orden de preferencia',
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ESTADO Y AUDITORÍA
-             * ───────────────────────────────────────────────────────────────── */
             activo TINYINT(1) DEFAULT 1,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             created_by BIGINT UNSIGNED NULL,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             updated_by BIGINT UNSIGNED NULL,
-
-            /* ─────────────────────────────────────────────────────────────────
-             * ÍNDICES
-             * ───────────────────────────────────────────────────────────────── */
             INDEX idx_tipo (tipo),
             INDEX idx_pais (pais_codigo),
             INDEX idx_moneda (moneda),
             INDEX idx_activo (activo),
             INDEX idx_uso_pagos (uso_pagos_proveedores),
             INDEX idx_uso_cobros (uso_cobros_clientes),
-            INDEX idx_principal (es_principal)
+            INDEX idx_principal (es_principal),
+            PRIMARY KEY (id)
+        ) {$charset_collate};";
+
+        dbDelta($sql);
+    }
+
+    /**
+     * Crear tabla wp_ga_cambios_log
+     *
+     * Registra todos los cambios realizados a datos sensibles en el sistema.
+     * Útil para auditoría y trazabilidad de modificaciones.
+     *
+     * @since 1.16.0
+     */
+    private static function create_cambios_log_table($wpdb, $charset_collate) {
+        $table_name = $wpdb->prefix . 'ga_cambios_log';
+
+        $sql = "CREATE TABLE {$table_name} (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            tabla VARCHAR(50) NOT NULL COMMENT 'Nombre de la tabla (aplicantes, usuarios, etc.)',
+            registro_id BIGINT UNSIGNED NOT NULL COMMENT 'ID del registro modificado',
+            campo VARCHAR(100) NOT NULL COMMENT 'Nombre del campo modificado',
+            valor_anterior TEXT NULL COMMENT 'Valor antes del cambio',
+            valor_nuevo TEXT NULL COMMENT 'Valor después del cambio',
+            modificado_por BIGINT UNSIGNED NOT NULL COMMENT 'ID de wp_users que realizó el cambio',
+            ip_address VARCHAR(45) NULL COMMENT 'Dirección IP (soporta IPv6)',
+            user_agent VARCHAR(255) NULL COMMENT 'Navegador/cliente usado',
+            accion ENUM('INSERT','UPDATE','DELETE') DEFAULT 'UPDATE' COMMENT 'Tipo de operación',
+            motivo TEXT NULL COMMENT 'Razón del cambio (opcional)',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_tabla_registro (tabla, registro_id),
+            INDEX idx_modificado_por (modificado_por),
+            INDEX idx_campo (campo),
+            INDEX idx_fecha (created_at),
+            INDEX idx_accion (accion),
+            PRIMARY KEY (id)
         ) {$charset_collate};";
 
         dbDelta($sql);

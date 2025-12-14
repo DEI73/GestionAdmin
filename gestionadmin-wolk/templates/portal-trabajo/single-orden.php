@@ -51,16 +51,40 @@ if (!empty($orden->habilidades_requeridas)) {
     }
 }
 
+// =============================================================================
 // Presupuesto formateado
+// Campos disponibles: tarifa_hora_min, tarifa_hora_max, presupuesto_fijo
+// =============================================================================
 $presupuesto = '';
-if ($orden->presupuesto_min && $orden->presupuesto_max) {
-    $presupuesto = '$' . number_format($orden->presupuesto_min, 0) . ' - $' . number_format($orden->presupuesto_max, 0) . ' USD';
-} elseif ($orden->presupuesto_max) {
-    $presupuesto = 'Hasta $' . number_format($orden->presupuesto_max, 0) . ' USD';
-} elseif ($orden->presupuesto_min) {
-    $presupuesto = 'Desde $' . number_format($orden->presupuesto_min, 0) . ' USD';
+$tarifa_min = isset($orden->tarifa_hora_min) ? floatval($orden->tarifa_hora_min) : 0;
+$tarifa_max = isset($orden->tarifa_hora_max) ? floatval($orden->tarifa_hora_max) : 0;
+$pres_fijo = isset($orden->presupuesto_fijo) ? floatval($orden->presupuesto_fijo) : 0;
+$tipo_pago_orden = $orden->tipo_pago ?? '';
+
+if ($tipo_pago_orden === 'PRECIO_FIJO' && $pres_fijo > 0) {
+    $presupuesto = '$' . number_format($pres_fijo, 0) . ' USD';
+} elseif ($tarifa_min > 0 && $tarifa_max > 0) {
+    $presupuesto = '$' . number_format($tarifa_min, 0) . ' - $' . number_format($tarifa_max, 0) . ' USD/hr';
+} elseif ($tarifa_max > 0) {
+    $presupuesto = __('Hasta', 'gestionadmin-wolk') . ' $' . number_format($tarifa_max, 0) . ' USD/hr';
+} elseif ($tarifa_min > 0) {
+    $presupuesto = __('Desde', 'gestionadmin-wolk') . ' $' . number_format($tarifa_min, 0) . ' USD/hr';
 } else {
-    $presupuesto = $tipos_pago[$orden->tipo_pago] ?? 'A convenir';
+    $presupuesto = $tipos_pago[$tipo_pago_orden] ?? __('A convenir', 'gestionadmin-wolk');
+}
+
+// Valores con fallback para evitar undefined property
+$modalidad_orden = $orden->modalidad ?? 'REMOTO';
+$categoria_orden = $orden->categoria ?? 'OTRO';
+$nivel_exp_orden = $orden->nivel_experiencia ?? 'CUALQUIERA';
+
+// Verificar si es urgente (basado en fecha_cierre_aplicaciones)
+$es_urgente = false;
+$es_alta_prioridad = false;
+if (!empty($orden->fecha_cierre_aplicaciones)) {
+    $dias_restantes = (strtotime($orden->fecha_cierre_aplicaciones) - current_time('timestamp')) / DAY_IN_SECONDS;
+    $es_urgente = ($dias_restantes <= 3 && $dias_restantes > 0);
+    $es_alta_prioridad = ($dias_restantes <= 7 && $dias_restantes > 3);
 }
 
 // Estado del usuario
@@ -74,7 +98,8 @@ if ($aplicante) {
 }
 
 // Tiempo desde publicación
-$tiempo = human_time_diff(strtotime($orden->created_at), current_time('timestamp'));
+$fecha_creacion = $orden->created_at ?? $orden->fecha_publicacion ?? current_time('mysql');
+$tiempo = human_time_diff(strtotime($fecha_creacion), current_time('timestamp'));
 
 // Número de aplicaciones
 $num_apps = GA_Ordenes_Trabajo::count_aplicaciones($orden->id);
@@ -107,13 +132,13 @@ GA_Theme_Integration::print_portal_styles();
             <header class="ga-order-header">
                 <div class="ga-order-header-meta">
                     <span class="ga-order-category">
-                        <?php echo esc_html($categorias[$orden->categoria] ?? $orden->categoria); ?>
+                        <?php echo esc_html($categorias[$categoria_orden] ?? $categoria_orden); ?>
                     </span>
                     <span class="ga-order-code"><?php echo esc_html($orden->codigo); ?></span>
-                    <?php if ($orden->prioridad === 'URGENTE') : ?>
+                    <?php if ($es_urgente) : ?>
                         <span class="ga-badge ga-badge-urgent"><?php esc_html_e('Urgente', 'gestionadmin-wolk'); ?></span>
-                    <?php elseif ($orden->prioridad === 'ALTA') : ?>
-                        <span class="ga-badge ga-badge-high"><?php esc_html_e('Prioridad Alta', 'gestionadmin-wolk'); ?></span>
+                    <?php elseif ($es_alta_prioridad) : ?>
+                        <span class="ga-badge ga-badge-high"><?php esc_html_e('Cierra Pronto', 'gestionadmin-wolk'); ?></span>
                     <?php endif; ?>
                 </div>
 
@@ -128,12 +153,15 @@ GA_Theme_Integration::print_portal_styles();
                         <span class="dashicons dashicons-groups"></span>
                         <?php printf(esc_html(_n('%d aplicación', '%d aplicaciones', $num_apps, 'gestionadmin-wolk')), $num_apps); ?>
                     </span>
-                    <?php if ($orden->fecha_limite_aplicacion) : ?>
+                    <?php
+                    // Usar fecha_cierre_aplicaciones o fecha_limite_aplicacion
+                    $fecha_cierre = $orden->fecha_cierre_aplicaciones ?? $orden->fecha_limite_aplicacion ?? null;
+                    if ($fecha_cierre) : ?>
                         <span class="ga-meta-item">
                             <span class="dashicons dashicons-calendar-alt"></span>
                             <?php printf(
                                 esc_html__('Cierre: %s', 'gestionadmin-wolk'),
-                                date_i18n('d M Y', strtotime($orden->fecha_limite_aplicacion))
+                                date_i18n('d M Y', strtotime($fecha_cierre))
                             ); ?>
                         </span>
                     <?php endif; ?>
@@ -204,15 +232,15 @@ GA_Theme_Integration::print_portal_styles();
                     <ul class="ga-order-quick-details">
                         <li>
                             <span class="ga-detail-label"><?php esc_html_e('Modalidad', 'gestionadmin-wolk'); ?></span>
-                            <span class="ga-detail-value"><?php echo esc_html($modalidades[$orden->modalidad] ?? $orden->modalidad); ?></span>
+                            <span class="ga-detail-value"><?php echo esc_html($modalidades[$modalidad_orden] ?? $modalidad_orden); ?></span>
                         </li>
                         <li>
                             <span class="ga-detail-label"><?php esc_html_e('Tipo de Pago', 'gestionadmin-wolk'); ?></span>
-                            <span class="ga-detail-value"><?php echo esc_html($tipos_pago[$orden->tipo_pago] ?? $orden->tipo_pago); ?></span>
+                            <span class="ga-detail-value"><?php echo esc_html($tipos_pago[$tipo_pago_orden] ?? $tipo_pago_orden); ?></span>
                         </li>
                         <li>
                             <span class="ga-detail-label"><?php esc_html_e('Experiencia', 'gestionadmin-wolk'); ?></span>
-                            <span class="ga-detail-value"><?php echo esc_html($niveles[$orden->nivel_experiencia] ?? $orden->nivel_experiencia); ?></span>
+                            <span class="ga-detail-value"><?php echo esc_html($niveles[$nivel_exp_orden] ?? $nivel_exp_orden); ?></span>
                         </li>
                         <?php if (!empty($orden->ubicacion_requerida)) : ?>
                             <li>
@@ -220,13 +248,13 @@ GA_Theme_Integration::print_portal_styles();
                                 <span class="ga-detail-value"><?php echo esc_html($orden->ubicacion_requerida); ?></span>
                             </li>
                         <?php endif; ?>
-                        <?php if ($orden->duracion_estimada_dias) : ?>
+                        <?php if (!empty($orden->duracion_estimada_dias)) : ?>
                             <li>
                                 <span class="ga-detail-label"><?php esc_html_e('Duración', 'gestionadmin-wolk'); ?></span>
-                                <span class="ga-detail-value"><?php printf(esc_html__('%d días', 'gestionadmin-wolk'), $orden->duracion_estimada_dias); ?></span>
+                                <span class="ga-detail-value"><?php printf(esc_html__('%d días', 'gestionadmin-wolk'), intval($orden->duracion_estimada_dias)); ?></span>
                             </li>
                         <?php endif; ?>
-                        <?php if ($orden->fecha_inicio_estimada) : ?>
+                        <?php if (!empty($orden->fecha_inicio_estimada)) : ?>
                             <li>
                                 <span class="ga-detail-label"><?php esc_html_e('Inicio Estimado', 'gestionadmin-wolk'); ?></span>
                                 <span class="ga-detail-value"><?php echo esc_html(date_i18n('d M Y', strtotime($orden->fecha_inicio_estimada))); ?></span>

@@ -1660,17 +1660,8 @@ class GA_Admin {
             wp_send_json_error(array('message' => $result['message']));
         }
 
-        // Si se contrata, rechazar las otras aplicaciones
-        if ($estado === 'CONTRATADO') {
-            $aplicacion = GA_Aplicaciones::get($id);
-            if ($aplicacion) {
-                GA_Aplicaciones::rechazar_otras(
-                    $aplicacion->orden_trabajo_id,
-                    $id,
-                    __('Orden asignada a otro aplicante.', 'gestionadmin-wolk')
-                );
-            }
-        }
+        // NOTA: La lógica de CONTRATADO (rechazar otras, transición aplicante→empleado)
+        // se maneja internamente en GA_Aplicaciones::cambiar_estado()
 
         wp_send_json_success(array('message' => $result['message']));
     }
